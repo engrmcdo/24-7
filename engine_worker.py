@@ -1,12 +1,29 @@
 import os
 import time
+import threading
 import requests
 import pandas as pd
 import yfinance as yf
+from fastapi import FastAPI
+import uvicorn
 from google import genai
 
 # ==============================================================================
-# 1. 5-Pillar System Guidance
+# 1. FastAPI HTTP Server (Qualifies for Render $0 Free Web Service)
+# ==============================================================================
+app = FastAPI(title="PSE Stock Engine Health Check")
+
+@app.get("/")
+@app.get("/health")
+def health_check():
+    return {
+        "status": "online",
+        "service": "PSE Stock Analyst & Insight Engine",
+        "timestamp": time.time()
+    }
+
+# ==============================================================================
+# 2. 5-Pillar Analytical Guidance (gem.json Architecture)
 # ==============================================================================
 SYSTEM_PROMPT = """
 You are the Stock Analysis & Insight Engine. Your purpose is to analyze stocks using both 
@@ -48,7 +65,7 @@ Follow this 5-Pillar Analytical Structure rigorously for every evaluation:
 """
 
 # ==============================================================================
-# 2. Watchlist: 14 PSE Blue Chips + GCash
+# 3. Monitored Watchlist: 14 PSE Blue Chips + GCash
 # ==============================================================================
 WATCHLIST = {
     "GCASH": {
@@ -249,18 +266,7 @@ WATCHLIST = {
 }
 
 # ==============================================================================
-# 3. Environment & Clients
-# ==============================================================================
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
-
-if not GEMINI_API_KEY:
-    raise ValueError("Missing GEMINI_API_KEY environment variable.")
-
-client = genai.Client(api_key=GEMINI_API_KEY)
-
-# ==============================================================================
-# 4. Calculation Engine
+# 4. Engine Worker Core
 # ==============================================================================
 def calculate_wilders_rsi(series: pd.Series, period: int = 14) -> float:
     if len(series) < period + 1:
@@ -268,14 +274,11 @@ def calculate_wilders_rsi(series: pd.Series, period: int = 14) -> float:
     delta = series.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
-
     avg_gain = gain.iloc[1:period+1].mean()
     avg_loss = loss.iloc[1:period+1].mean()
-
     for i in range(period + 1, len(series)):
         avg_gain = (avg_gain * (period - 1) + gain.iloc[i]) / period
         avg_loss = (avg_loss * (period - 1) + loss.iloc[i]) / period
-
     if avg_loss == 0:
         return 100.0
     rs = avg_gain / avg_loss
@@ -338,10 +341,7 @@ def fetch_stock_snapshot(ticker: str, meta: dict) -> dict:
         "risks": meta["risks"]
     }
 
-# ==============================================================================
-# 5. Gemini 5-Pillar Synthesis & Dispatch
-# ==============================================================================
-def generate_gemini_5pillar_brief(snapshot: dict) -> str:
+def generate_gemini_5pillar_brief(client: genai.Client, snapshot: dict) -> str:
     prompt = f"""
     Perform a complete 5-pillar stock analysis based on the following verified data snapshot:
 
@@ -375,26 +375,35 @@ def generate_gemini_5pillar_brief(snapshot: dict) -> str:
     )
     return response.text
 
-def dispatch_notification(text: str):
+def dispatch_notification(webhook_url: str, text: str):
     print("\n" + "=" * 80)
     print(text)
     print("=" * 80 + "\n")
 
-    if DISCORD_WEBHOOK_URL:
+    if webhook_url:
         chunks = [text[i:i+1900] for i in range(0, len(text), 1900)]
         for chunk in chunks:
             try:
-                requests.post(DISCORD_WEBHOOK_URL, json={"content": chunk}, timeout=5)
+                requests.post(webhook_url, json={"content": chunk}, timeout=5)
             except Exception as e:
                 print(f"Failed to post to webhook: {e}")
 
 # ==============================================================================
-# 6. Main Background Loop (Every 60 Seconds)
+# 5. Background Thread Execution Loop
 # ==============================================================================
-def run_engine_worker(interval_seconds: int = 60):
+def background_scanner_loop():
+    time.sleep(5)  # Wait for web server to bind
+    api_key = os.environ.get("GEMINI_API_KEY")
+    webhook_url = os.environ.get("DISCORD_WEBHOOK_URL")
+
+    if not api_key:
+        print("[WARNING] GEMINI_API_KEY is not set. Worker thread paused.")
+        return
+
+    client = genai.Client(api_key=api_key)
     tickers = list(WATCHLIST.keys())
     idx = 0
-    print(f"PSE Stock Analyst Worker active across {len(tickers)} stocks.")
+    print(f"Background Stock Scanner started across {len(tickers)} stocks.")
 
     while True:
         target_ticker = tickers[idx % len(tickers)]
@@ -402,13 +411,22 @@ def run_engine_worker(interval_seconds: int = 60):
 
         try:
             snapshot = fetch_stock_snapshot(target_ticker, meta)
-            analysis = generate_gemini_5pillar_brief(snapshot)
-            dispatch_notification(analysis)
+            analysis = generate_gemini_5pillar_brief(client, snapshot)
+            dispatch_notification(webhook_url, analysis)
         except Exception as e:
-            print(f"Error processing {target_ticker}: {e}")
+            print(f"Error evaluating {target_ticker}: {e}")
 
         idx += 1
-        time.sleep(interval_seconds)
+        time.sleep(60)  # Evaluate one stock per minute
 
+# ==============================================================================
+# 6. Entrypoint: Start Scanner Thread & Run HTTP Server
+# ==============================================================================
 if __name__ == "__main__":
-    run_engine_worker(interval_seconds=60)
+    # Launch stock scanner in a background daemon thread
+    scanner_thread = threading.Thread(target=background_scanner_loop, daemon=True)
+    scanner_thread.start()
+
+    # Bind HTTP server to the port provided by Render (defaults to 8080)
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
