@@ -295,43 +295,32 @@ def refresh_stock_metrics(ticker: str) -> dict:
     }
 
 # ==============================================================================
-# 5. 5-Pillar Broadcast Formatter
+# 5. Consolidated Watchlist Digest Formatter (Fits within Telegram's 4,096-char cap)
 # ==============================================================================
-def format_5pillar_broadcast(s: dict) -> str:
-    now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
+def format_consolidated_radar_digest(stock_states: list) -> str:
+    now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M %p PHT")
 
     lines = [
-        f"📢 *[PSE MARKET RADAR] {s['status_tag']} — {s['ticker']}*",
+        "📊 *[PSE MARKET RADAR] 15-Stock Consolidated Digest*",
         f"*Timestamp: {now_str}*",
-        "",
-        "*1. Technical Chart Analysis*",
-        f"• *Actual Price:* ₱{s['price']:,.2f} | *Trend:* {s['trend']} (MA20: ₱{s['ma20']:,.2f})",
-        f"• *Dynamic Support Floor:* ₱{s['support']:,.2f}",
-        f"• *Dynamic Resistance Ceiling:* ₱{s['resistance']:,.2f}",
-        f"• *Wilder RSI (14D):* {s['rsi']:.1f}",
-        f"• *Context:* Price action currently trades {s['trend']}. Support sits near ₱{s['support']:,.2f} and resistance near ₱{s['resistance']:,.2f} based on rolling price windows.",
-        "",
-        "*2. Fundamental Profile & Valuation Anchor*",
-        f"• *Company:* {s['name']} ({s['sector']})",
-        f"• *Multiples:* P/E {s['pe']} | P/B {s['pb']}",
-        f"• *Key Catalysts:* {s['catalysts']}",
-        f"• *Key Risks:* {s['risks']}",
-        "",
-        "*3. Suggested Price Ranges (Analytical Corridors)*",
-        f"• 🟢 *Suggested Accumulation Zone:* {s['buy_band']}",
-        f"• 🔴 *Suggested Profit-Taking Zone:* {s['sell_band']}",
-        f"• *Current Positioning:* *{s['zone_status']}*",
-        "• *Analytical Note:* Corridors reflect historical buyer/seller concentration areas, not trade execution orders.",
-        "",
-        "*4. Analyst-Style Commentary*",
-        f"The stock is currently trading in a *{s['zone_status']}* stance. Moving average alignment reflects prevailing market sentiment. Fundamental valuation multiples provide structural context relative to sector medians.",
-        "",
-        "---",
-        "_Pillar 5 Mandatory Safety & Educational Disclaimer: These insights, technical indicators, and suggested price ranges are generated strictly for informational and educational tracking purposes. They do not constitute financial advice, an investment recommendation, an endorsement, or a trade instruction to buy, sell, or hold any security. Always consult a licensed financial advisor before making investment decisions._"
+        "---"
     ]
 
-    return "\n".join(lines)
+    for s in stock_states:
+        # Compact 5-pillar line summary per ticker
+        lines.append(
+            f"{s['status_tag']} *{s['ticker']}* (₱{s['price']:,.2f} | {s['trend']})\n"
+            f"• *Corridors:* S ₱{s['support']:,.2f} | R ₱{s['resistance']:,.2f} | RSI: {s['rsi']:.1f}\n"
+            f"• *Zones:* 🟢 Buy {s['buy_band']} | 🔴 Sell {s['sell_band']}\n"
+            f"• *Valuation:* P/E {s['pe']} | P/B {s['pb']}"
+        )
 
+    lines.extend([
+        "---",
+        "_Analytical reference levels for tracking liquidity and exhaustion zones, not trade execution orders. Informational only, not financial advice._"
+    ])
+
+    return "\n\n".join(lines)
 # ==============================================================================
 # 6. Webhook & Telegram Dispatcher
 # ==============================================================================
@@ -371,30 +360,30 @@ def dispatch_broadcast(text: str):
             print(f"Discord dispatch error: {e}")
 
 # ==============================================================================
-# 7. Background Loop (15-Minute Broadcast Interval)
+# 7. Background Loop (1 Single Broadcast Every 15 Minutes)
 # ==============================================================================
 def continuous_broadcast_worker():
     time.sleep(5)
     tickers = list(WATCHLIST.keys())
-    idx = 0
-    print(f"PSE 5-Pillar Broadcast Engine active across {len(tickers)} tickers (15-min interval).")
+    print(f"PSE Consolidated Radar active: Broadcasting all {len(tickers)} stocks in 1 message every 15 mins.")
 
     while True:
-        ticker = tickers[idx % len(tickers)]
-        try:
-            state = refresh_stock_metrics(ticker)
-            message = format_5pillar_broadcast(state)
-            dispatch_broadcast(message)
-        except Exception as e:
-            print(f"Error processing {ticker}: {e}")
+        cycle_start_str = datetime.now(PHT).strftime("%I:%M:%S %p PHT")
+        print(f"\n[SWEEP START] Scraping all 15 stocks at {cycle_start_str}...")
 
-        idx += 1
-        # 15 minutes = 900 seconds
+        all_states = []
+        for ticker in tickers:
+            try:
+                state = refresh_stock_metrics(ticker)
+                all_states.append(state)
+            except Exception as e:
+                print(f"Error scraping {ticker}: {e}")
+
+        # Dispatch everything in a single message payload
+        if all_states:
+            digest_message = format_consolidated_radar_digest(all_states)
+            dispatch_broadcast(digest_message)
+            print(f"[SENT] Consolidated digest sent ({len(digest_message)} chars).")
+
+        print("[BREAK] Sleeping for 15 minutes (900 seconds) until next cycle...\n")
         time.sleep(900)
-
-if __name__ == "__main__":
-    worker_thread = threading.Thread(target=continuous_broadcast_worker, daemon=True)
-    worker_thread.start()
-
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
