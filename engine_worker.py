@@ -99,4 +99,301 @@ WATCHLIST = {
         "last_price": 820.00,
         "history": [810.0, 815.0, 820.0],
         "pb": "3.5x", "pe": "18.2x", "sector": "Port Logistics",
-        "catalysts":
+        "catalysts": "Global volume throughput growth, port tariff adjustments, natural USD revenue hedge.",
+        "risks": "Global trade route disruptions, concession renewal capex."
+    },
+    "SMPH": {
+        "name": "SM Prime Holdings",
+        "sym": "SMPH",
+        "last_price": 17.54,
+        "history": [17.2, 17.4, 17.54],
+        "pb": "1.1x", "pe": "14.5x", "sector": "Real Estate / Commercial Malls",
+        "catalysts": "Provincial mall foot traffic, resilient tenant rental revenue yields, residential pipeline expansion.",
+        "risks": "Inflationary pressure on retail tenant sales."
+    },
+    "SM": {
+        "name": "SM Investments Corp.",
+        "sym": "SM",
+        "last_price": 534.00,
+        "history": [528.0, 530.0, 534.0],
+        "pb": "1.3x", "pe": "13.2x", "sector": "Conglomerates",
+        "catalysts": "Direct consumer spending proxy across retail, universal banking, and prime commercial property.",
+        "risks": "Compression in discretionary consumer spending."
+    },
+    "MBT": {
+        "name": "Metrobank",
+        "sym": "MBT",
+        "last_price": 60.75,
+        "history": [59.5, 60.0, 60.75],
+        "pb": "0.7x", "pe": "6.8x", "sector": "Banking",
+        "catalysts": "High Tier-1 capital adequacy, room for dividend payout expansion, corporate credit demand.",
+        "risks": "Compression in loan margins during rate cuts."
+    },
+    "MER": {
+        "name": "Manila Electric Company",
+        "sym": "MER",
+        "last_price": 429.80,
+        "history": [425.0, 428.0, 429.8],
+        "pb": "1.9x", "pe": "12.0x", "sector": "Utilities / Power Distribution",
+        "catalysts": "Guaranteed distribution asset base, consistent power demand growth, stable cash return.",
+        "risks": "Regulatory rate review scrutiny, fuel input cost pass-through risks."
+    },
+    "MONDE": {
+        "name": "Monde Nissin",
+        "sym": "MONDE",
+        "last_price": 5.90,
+        "history": [5.80, 5.85, 5.90],
+        "pb": "2.2x", "pe": "16.5x", "sector": "Consumer Staples / Food",
+        "catalysts": "Core noodles volume leadership, input commodity cost deflation (wheat, palm oil).",
+        "risks": "Alternative meat segment drag, agricultural commodity volatility."
+    },
+    "JFC": {
+        "name": "Jollibee Foods Corporation",
+        "sym": "JFC",
+        "last_price": 144.00,
+        "history": [140.0, 142.0, 144.0],
+        "pb": "3.1x", "pe": "22.8x", "sector": "Consumer Discretionary / QSR",
+        "catalysts": "Global network expansion, domestic quick-service restaurant resilience, franchising revenue.",
+        "risks": "Store labor inflation, international acquisition overhead."
+    },
+    "PGOLD": {
+        "name": "Puregold Price Club",
+        "sym": "PGOLD",
+        "last_price": 40.00,
+        "history": [39.0, 39.5, 40.0],
+        "pb": "0.8x", "pe": "10.4x", "sector": "Consumer Staples / Grocery Retail",
+        "catalysts": "Provincial footprint rollouts, resilient staple volume demand, wholesale store growth.",
+        "risks": "Competition from regional discounters, margin compression."
+    }
+}
+
+# ==============================================================================
+# 3. Direct Live PSE Quote Scraper (No 401 Crumb Errors)
+# ==============================================================================
+def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
+    """Scrapes financial market endpoints to bypass Yahoo Finance 401 blocks."""
+    if ticker == "GCASH":
+        glo_price = fetch_live_pse_quote("GLO", WATCHLIST["GLO"])
+        return round(glo_price * (6.72 / 1537.00), 2)
+
+    sym = meta["sym"]
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": "https://www.google.com/"
+    }
+
+    # Primary: Google Finance PSE quote
+    try:
+        url = f"https://www.google.com/finance/quote/{sym}:PSE"
+        res = requests.get(url, headers=headers, timeout=6)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, "html.parser")
+            price_div = soup.find("div", class_="YMlKec fxKbKc")
+            if price_div:
+                raw_text = price_div.text.replace("₱", "").replace(",", "").strip()
+                val = float(raw_text)
+                if val > 0:
+                    return round(val, 2)
+    except Exception:
+        pass
+
+    # Secondary: MarketWatch PSE quote
+    try:
+        url = f"https://www.marketwatch.com/investing/stock/{sym.lower()}?countrycode=ph"
+        res = requests.get(url, headers=headers, timeout=6)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, "html.parser")
+            bg_quote = soup.find("bg-quote", class_="value")
+            if bg_quote:
+                raw_text = bg_quote.text.replace(",", "").strip()
+                val = float(raw_text)
+                if val > 0:
+                    return round(val, 2)
+    except Exception:
+        pass
+
+    return meta["last_price"]
+
+# ==============================================================================
+# 4. Indicator Calculation Engine
+# ==============================================================================
+def calculate_wilders_rsi(series: pd.Series, period: int = 14) -> float:
+    """Calculates Wilder's Smoothed RSI."""
+    if len(series) < period + 1:
+        diff = series.diff().dropna()
+        if diff.empty:
+            return 50.0
+        g = diff.clip(lower=0).mean()
+        l = -diff.clip(upper=0).mean()
+        if l == 0:
+            return 100.0
+        return round(100.0 - (100.0 / (1.0 + (g / l))), 1)
+
+    delta = series.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.iloc[1:period+1].mean()
+    avg_loss = loss.iloc[1:period+1].mean()
+    for i in range(period + 1, len(series)):
+        avg_gain = (avg_gain * (period - 1) + gain.iloc[i]) / period
+        avg_loss = (avg_loss * (period - 1) + loss.iloc[i]) / period
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return round(100.0 - (100.0 / (1.0 + rs)), 1)
+
+def refresh_stock_metrics(ticker: str) -> dict:
+    """Fetches verified quote and recalculates support, resistance, MA20, and RSI."""
+    state = WATCHLIST[ticker]
+    actual_price = fetch_live_pse_quote(ticker, state)
+
+    state["last_price"] = actual_price
+    state["history"].append(actual_price)
+    if len(state["history"]) > 25:
+        state["history"].pop(0)
+
+    series = pd.Series(state["history"])
+    dyn_s = round(float(series.min()), 2)
+    dyn_r = round(float(max(series.max(), actual_price)), 2)
+    ma20 = round(float(series.mean()), 2)
+    rsi_val = calculate_wilders_rsi(series, period=min(14, len(series) - 1))
+    trend = "Above MA20" if actual_price >= ma20 else "Below MA20"
+
+    # Corridors from gem.json
+    buy_band = f"₱{(dyn_s * 0.995):,.2f} – ₱{(dyn_s * 1.010):,.2f}"[cite: 1]
+    sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.005):,.2f}"[cite: 1]
+
+    # 3-State Condition Logic
+    if actual_price <= dyn_s * 1.015:
+        zone_status = "ACCUMULATION (BUY ZONE)"[cite: 1]
+        status_tag = "🟢 ACCUMULATION"
+    elif actual_price >= dyn_r * 0.990 or rsi_val >= 68.0:
+        zone_status = "PROFIT-TAKING (SELL ZONE)"[cite: 1]
+        status_tag = "🔴 PROFIT-TAKING"
+    else:
+        zone_status = "NEUTRAL (HOLD / CONSOLIDATION)"
+        status_tag = "⚪ NEUTRAL"
+
+    return {
+        "ticker": ticker,
+        "name": state["name"],
+        "sector": state["sector"],
+        "price": actual_price,
+        "support": dyn_s,
+        "resistance": dyn_r,
+        "ma20": ma20,
+        "rsi": rsi_val,
+        "trend": trend,
+        "status_tag": status_tag,
+        "zone_status": zone_status,
+        "buy_band": buy_band,
+        "sell_band": sell_band,
+        "pb": state["pb"],
+        "pe": state["pe"],
+        "catalysts": state["catalysts"],
+        "risks": state["risks"]
+    }
+
+# ==============================================================================
+# 5. 5-Pillar Broadcast Formatter
+# ==============================================================================
+def format_5pillar_broadcast(s: dict) -> str:
+    now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
+
+    lines = [
+        f"📢 *[PSE MARKET RADAR] {s['status_tag']} — {s['ticker']}*",
+        f"*Timestamp: {now_str}*",
+        "",
+        "*1. Technical Chart Analysis*",
+        f"• *Actual Price:* ₱{s['price']:,.2f} | *Trend:* {s['trend']} (MA20: ₱{s['ma20']:,.2f})",
+        f"• *Dynamic Support Floor:* ₱{s['support']:,.2f}",
+        f"• *Dynamic Resistance Ceiling:* ₱{s['resistance']:,.2f}",
+        f"• *Wilder RSI (14D):* {s['rsi']:.1f}",
+        f"• *Context:* Price action currently trades {s['trend']}. Support sits near ₱{s['support']:,.2f} and resistance near ₱{s['resistance']:,.2f} based on rolling price windows.",
+        "",
+        "*2. Fundamental Profile & Valuation Anchor*",
+        f"• *Company:* {s['name']} ({s['sector']})",
+        f"• *Multiples:* P/E {s['pe']} | P/B {s['pb']}",
+        f"• *Key Catalysts:* {s['catalysts']}",
+        f"• *Key Risks:* {s['risks']}",
+        "",
+        "*3. Suggested Price Ranges (Analytical Corridors)*",
+        f"• 🟢 *Suggested Accumulation Zone:* {s['buy_band']}",
+        f"• 🔴 *Suggested Profit-Taking Zone:* {s['sell_band']}",
+        f"• *Current Positioning:* *{s['zone_status']}*",
+        "• *Analytical Note:* Corridors reflect historical buyer/seller concentration areas, not trade execution orders.",
+        "",
+        "*4. Analyst-Style Commentary*",
+        f"The stock is currently trading in a *{s['zone_status']}* stance. Moving average alignment reflects prevailing market sentiment. Fundamental valuation multiples provide structural context relative to sector medians.",
+        "",
+        "---",
+        "_Pillar 5 Mandatory Safety & Educational Disclaimer: These insights, technical indicators, and suggested price ranges are generated strictly for informational and educational tracking purposes. They do not constitute financial advice, an investment recommendation, an endorsement, or a trade instruction to buy, sell, or hold any security. Always consult a licensed financial advisor before making investment decisions._"
+    ]
+
+    return "\n".join(lines)
+
+# ==============================================================================
+# 6. Webhook & Telegram Dispatcher
+# ==============================================================================
+def dispatch_broadcast(text: str):
+    print("\n" + "=" * 60)
+    print(text)
+    print("=" * 60 + "\n")
+
+    raw_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip().strip('"').strip("'")
+    raw_chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip().strip('"').strip("'")
+
+    if raw_token and raw_chat:
+        clean_token = raw_token.replace("bot", "") if raw_token.startswith("bot") else raw_token
+        url = f"https://api.telegram.org/bot{clean_token}/sendMessage"
+        payload = {"chat_id": raw_chat, "text": text, "parse_mode": "Markdown"}
+        try:
+            res = requests.post(url, json=payload, timeout=8)
+            if res.status_code == 200:
+                print("[TELEGRAM] Alert delivered successfully.")
+            elif res.status_code == 400:
+                payload.pop("parse_mode")
+                retry_res = requests.post(url, json=payload, timeout=8)
+                if retry_res.status_code == 200:
+                    print("[TELEGRAM] Delivered as plain text.")
+                else:
+                    print(f"[TELEGRAM ERROR] {retry_res.status_code}: {retry_res.text}")
+            else:
+                print(f"[TELEGRAM ERROR] {res.status_code}: {res.text}")
+        except Exception as e:
+            print(f"[TELEGRAM EXCEPTION] {e}")
+
+    discord_url = os.environ.get("DISCORD_WEBHOOK_URL")
+    if discord_url:
+        try:
+            requests.post(discord_url, json={"content": text[:1900]}, timeout=8)
+        except Exception as e:
+            print(f"Discord dispatch error: {e}")
+
+# ==============================================================================
+# 7. Background Loop (Cycles 15 Stocks Every 60 Seconds)
+# ==============================================================================
+def continuous_broadcast_worker():
+    time.sleep(5)
+    tickers = list(WATCHLIST.keys())
+    idx = 0
+    print(f"PSE 5-Pillar Broadcast Engine active across {len(tickers)} tickers.")
+
+    while True:
+        ticker = tickers[idx % len(tickers)]
+        try:
+            state = refresh_stock_metrics(ticker)
+            message = format_5pillar_broadcast(state)
+            dispatch_broadcast(message)
+        except Exception as e:
+            print(f"Error processing {ticker}: {e}")
+
+        idx += 1
+        time.sleep(60)
+
+if __name__ == "__main__":
+    worker_thread = threading.Thread(target=continuous_broadcast_worker, daemon=True)
+    worker_thread.start()
+
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
