@@ -411,16 +411,46 @@ def dispatch_broadcast(text: str):
     print(text)
     print("=" * 60 + "\n")
 
-    # Telegram Dispatch
-    tg_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    tg_chat = os.environ.get("TELEGRAM_CHAT_ID")
-    if tg_token and tg_chat:
-        try:
-            url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
-            requests.post(url, json={"chat_id": tg_chat, "text": text, "parse_mode": "Markdown"}, timeout=8)
-        except Exception as e:
-            print(f"Telegram dispatch error: {e}")
+    raw_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip().strip('"').strip("'")
+    raw_chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip().strip('"').strip("'")
 
+    if not raw_token or not raw_chat:
+        print("[TELEGRAM ERROR] Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in environment.")
+        return
+
+    # Clean token if user accidentally included the word 'bot' in the env variable
+    clean_token = raw_token.replace("bot", "") if raw_token.startswith("bot") else raw_token
+    url = f"https://api.telegram.org/bot{clean_token}/sendMessage"
+
+    payload = {
+        "chat_id": raw_chat,
+        "text": text,
+        "parse_mode": "Markdown"
+    }
+
+    try:
+        res = requests.post(url, json=payload, timeout=10)
+        
+        # 1. Success
+        if res.status_code == 200:
+            print("[TELEGRAM] Alert delivered successfully.")
+            return
+
+        # 2. Markdown parse error fallback (HTTP 400)
+        if res.status_code == 400:
+            print("[TELEGRAM WARNING] Markdown entity rejection. Retrying as plain text...")
+            payload.pop("parse_mode")
+            retry_res = requests.post(url, json=payload, timeout=10)
+            if retry_res.status_code == 200:
+                print("[TELEGRAM] Delivered as plain text.")
+                return
+
+        # 3. Log any other HTTP error directly
+        print(f"[TELEGRAM ERROR] HTTP {res.status_code}: {res.text}")
+
+    except Exception as e:
+        print(f"[TELEGRAM EXCEPTION] Connection failed: {e}")
+        
     # Discord Dispatch (Optional)
     discord_url = os.environ.get("DISCORD_WEBHOOK_URL")
     if discord_url:
