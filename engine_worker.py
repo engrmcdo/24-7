@@ -1,6 +1,7 @@
 import os
 import time
-import threading
+import asyncio
+from contextlib import asynccontextmanager
 import requests
 import pandas as pd
 import numpy as np
@@ -10,24 +11,10 @@ import uvicorn
 from datetime import datetime
 import pytz
 
-# ==============================================================================
-# 1. FastAPI Web Server (Keeps Service Awake on Render $0 Free Tier)
-# ==============================================================================
-app = FastAPI(title="PSE Dynamic Broadcast Engine")
-
-@app.get("/")
-@app.get("/health")
-def health():
-    return {
-        "status": "online",
-        "service": "PSE 5-Pillar Real-Time Engine",
-        "timestamp": time.time()
-    }
-
 PHT = pytz.timezone("Asia/Manila")
 
 # ==============================================================================
-# 2. Monitored Universe: 14 PSE Blue Chips + GCash (Mynt, Inc.)
+# 1. Monitored Universe: 14 PSE Blue Chips + GCash (Mynt, Inc.)
 # ==============================================================================
 WATCHLIST = {
     "GCASH": {
@@ -168,10 +155,9 @@ WATCHLIST = {
 }
 
 # ==============================================================================
-# 3. Direct Live PSE Quote Scraper
+# 2. Resilient Live PSE Scraper
 # ==============================================================================
 def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
-    """Scrapes financial market endpoints to bypass Yahoo Finance 401 blocks."""
     if ticker == "GCASH":
         glo_price = fetch_live_pse_quote("GLO", WATCHLIST["GLO"])
         return round(glo_price * (6.72 / 1537.00), 2)
@@ -185,7 +171,7 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
     # Primary: Google Finance PSE quote
     try:
         url = f"https://www.google.com/finance/quote/{sym}:PSE"
-        res = requests.get(url, headers=headers, timeout=6)
+        res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
             price_div = soup.find("div", class_="YMlKec fxKbKc")
@@ -197,10 +183,10 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
     except Exception:
         pass
 
-    # Secondary: MarketWatch PSE quote
+    # Secondary: MarketWatch fallback
     try:
         url = f"https://www.marketwatch.com/investing/stock/{sym.lower()}?countrycode=ph"
-        res = requests.get(url, headers=headers, timeout=6)
+        res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
             bg_quote = soup.find("bg-quote", class_="value")
@@ -215,10 +201,9 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
     return meta["last_price"]
 
 # ==============================================================================
-# 4. Indicator Calculation Engine
+# 3. Technical Calculation Engine
 # ==============================================================================
 def calculate_wilders_rsi(series: pd.Series, period: int = 14) -> float:
-    """Calculates Wilder's Smoothed RSI."""
     if len(series) < period + 1:
         diff = series.diff().dropna()
         if diff.empty:
@@ -243,7 +228,6 @@ def calculate_wilders_rsi(series: pd.Series, period: int = 14) -> float:
     return round(100.0 - (100.0 / (1.0 + rs)), 1)
 
 def refresh_stock_metrics(ticker: str) -> dict:
-    """Fetches verified quote and recalculates support, resistance, MA20, and RSI."""
     state = WATCHLIST[ticker]
     actual_price = fetch_live_pse_quote(ticker, state)
 
@@ -259,19 +243,15 @@ def refresh_stock_metrics(ticker: str) -> dict:
     rsi_val = calculate_wilders_rsi(series, period=min(14, len(series) - 1))
     trend = "Above MA20" if actual_price >= ma20 else "Below MA20"
 
-    # Corridors calculation (Clean math without cite tokens)
+    # Analytical corridors from gem.json
     buy_band = f"₱{(dyn_s * 0.995):,.2f} – ₱{(dyn_s * 1.010):,.2f}"
     sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.005):,.2f}"
 
-    # 3-State Condition Logic
     if actual_price <= dyn_s * 1.015:
-        zone_status = "ACCUMULATION (BUY ZONE)"
         status_tag = "🟢 ACCUMULATION"
     elif actual_price >= dyn_r * 0.990 or rsi_val >= 68.0:
-        zone_status = "PROFIT-TAKING (SELL ZONE)"
         status_tag = "🔴 PROFIT-TAKING"
     else:
-        zone_status = "NEUTRAL (HOLD / CONSOLIDATION)"
         status_tag = "⚪ NEUTRAL"
 
     return {
@@ -285,17 +265,14 @@ def refresh_stock_metrics(ticker: str) -> dict:
         "rsi": rsi_val,
         "trend": trend,
         "status_tag": status_tag,
-        "zone_status": zone_status,
         "buy_band": buy_band,
         "sell_band": sell_band,
         "pb": state["pb"],
-        "pe": state["pe"],
-        "catalysts": state["catalysts"],
-        "risks": state["risks"]
+        "pe": state["pe"]
     }
 
 # ==============================================================================
-# 5. Consolidated Watchlist Digest Formatter (Fits within Telegram's 4,096-char cap)
+# 4. Formatter & Telegram Dispatcher (Single Message Under 4,096 Chars)
 # ==============================================================================
 def format_consolidated_radar_digest(stock_states: list) -> str:
     now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M %p PHT")
@@ -307,23 +284,20 @@ def format_consolidated_radar_digest(stock_states: list) -> str:
     ]
 
     for s in stock_states:
-        # Compact 5-pillar line summary per ticker
         lines.append(
             f"{s['status_tag']} *{s['ticker']}* (₱{s['price']:,.2f} | {s['trend']})\n"
-            f"• *Corridors:* S ₱{s['support']:,.2f} | R ₱{s['resistance']:,.2f} | RSI: {s['rsi']:.1f}\n"
-            f"• *Zones:* 🟢 Buy {s['buy_band']} | 🔴 Sell {s['sell_band']}\n"
-            f"• *Valuation:* P/E {s['pe']} | P/B {s['pb']}"
+            f"• S: ₱{s['support']:,.2f} | R: ₱{s['resistance']:,.2f} | RSI: {s['rsi']:.1f}\n"
+            f"• 🟢 Buy: {s['buy_band']} | 🔴 Sell: {s['sell_band']}\n"
+            f"• Valuation: P/E {s['pe']} | P/B {s['pb']}"
         )
 
     lines.extend([
         "---",
-        "_Analytical reference levels for tracking liquidity and exhaustion zones, not trade execution orders. Informational only, not financial advice._"
+        "_Pillar 5 Disclaimer: Analytical reference levels for tracking liquidity and exhaustion zones, not trade execution orders. Informational only, not financial advice._"
     ])
 
     return "\n\n".join(lines)
-# ==============================================================================
-# 6. Webhook & Telegram Dispatcher
-# ==============================================================================
+
 def dispatch_broadcast(text: str):
     print("\n" + "=" * 60)
     print(text)
@@ -352,38 +326,43 @@ def dispatch_broadcast(text: str):
         except Exception as e:
             print(f"[TELEGRAM EXCEPTION] {e}")
 
-    discord_url = os.environ.get("DISCORD_WEBHOOK_URL")
-    if discord_url:
-        try:
-            requests.post(discord_url, json={"content": text[:1900]}, timeout=8)
-        except Exception as e:
-            print(f"Discord dispatch error: {e}")
-
 # ==============================================================================
-# 7. Background Loop (1 Single Broadcast Every 15 Minutes)
+# 5. Background Task & FastAPI Lifespan Handler
 # ==============================================================================
-def continuous_broadcast_worker():
-    time.sleep(5)
+async def market_broadcast_loop():
+    await asyncio.sleep(5)  # Let FastAPI complete port binding
     tickers = list(WATCHLIST.keys())
-    print(f"PSE Consolidated Radar active: Broadcasting all {len(tickers)} stocks in 1 message every 15 mins.")
+    print(f"PSE Consolidated Radar active across {len(tickers)} stocks (15-min interval).")
 
     while True:
-        cycle_start_str = datetime.now(PHT).strftime("%I:%M:%S %p PHT")
-        print(f"\n[SWEEP START] Scraping all 15 stocks at {cycle_start_str}...")
-
-        all_states = []
-        for ticker in tickers:
-            try:
+        try:
+            all_states = []
+            for ticker in tickers:
                 state = refresh_stock_metrics(ticker)
                 all_states.append(state)
-            except Exception as e:
-                print(f"Error scraping {ticker}: {e}")
 
-        # Dispatch everything in a single message payload
-        if all_states:
-            digest_message = format_consolidated_radar_digest(all_states)
-            dispatch_broadcast(digest_message)
-            print(f"[SENT] Consolidated digest sent ({len(digest_message)} chars).")
+            if all_states:
+                digest = format_consolidated_radar_digest(all_states)
+                dispatch_broadcast(digest)
+        except Exception as e:
+            print(f"[LOOP ERROR] {e}")
 
-        print("[BREAK] Sleeping for 15 minutes (900 seconds) until next cycle...\n")
-        time.sleep(900)
+        # Sleep for 15 minutes (900 seconds)
+        await asyncio.sleep(900)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(market_broadcast_loop())
+    yield
+    task.cancel()
+
+app = FastAPI(title="PSE Dynamic Broadcast Engine", lifespan=lifespan)
+
+@app.get("/")
+@app.get("/health")
+def health():
+    return {"status": "online", "service": "PSE 5-Pillar Real-Time Engine"}
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
