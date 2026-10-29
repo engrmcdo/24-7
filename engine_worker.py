@@ -168,7 +168,7 @@ WATCHLIST = {
 }
 
 # ==============================================================================
-# 3. Direct Live PSE Quote Scraper (No 401 Crumb Errors)
+# 3. Direct Live PSE Quote Scraper
 # ==============================================================================
 def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
     """Scrapes financial market endpoints to bypass Yahoo Finance 401 blocks."""
@@ -259,16 +259,16 @@ def refresh_stock_metrics(ticker: str) -> dict:
     rsi_val = calculate_wilders_rsi(series, period=min(14, len(series) - 1))
     trend = "Above MA20" if actual_price >= ma20 else "Below MA20"
 
-    # Corridors from gem.json
-    buy_band = f"₱{(dyn_s * 0.995):,.2f} – ₱{(dyn_s * 1.010):,.2f}"[cite: 1]
-    sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.005):,.2f}"[cite: 1]
+    # Corridors calculation (Clean math without cite tokens)
+    buy_band = f"₱{(dyn_s * 0.995):,.2f} – ₱{(dyn_s * 1.010):,.2f}"
+    sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.005):,.2f}"
 
     # 3-State Condition Logic
     if actual_price <= dyn_s * 1.015:
-        zone_status = "ACCUMULATION (BUY ZONE)"[cite: 1]
+        zone_status = "ACCUMULATION (BUY ZONE)"
         status_tag = "🟢 ACCUMULATION"
     elif actual_price >= dyn_r * 0.990 or rsi_val >= 68.0:
-        zone_status = "PROFIT-TAKING (SELL ZONE)"[cite: 1]
+        zone_status = "PROFIT-TAKING (SELL ZONE)"
         status_tag = "🔴 PROFIT-TAKING"
     else:
         zone_status = "NEUTRAL (HOLD / CONSOLIDATION)"
@@ -371,23 +371,30 @@ def dispatch_broadcast(text: str):
             print(f"Discord dispatch error: {e}")
 
 # ==============================================================================
-# 7. Background Loop (Full Universe Scan Every 15 Minutes)
+# 7. Background Loop (15-Minute Broadcast Interval)
 # ==============================================================================
 def continuous_broadcast_worker():
     time.sleep(5)
-    print("PSE 5-Pillar Broadcast Engine active: Scanning universe every 15 minutes.")
+    tickers = list(WATCHLIST.keys())
+    idx = 0
+    print(f"PSE 5-Pillar Broadcast Engine active across {len(tickers)} tickers (15-min interval).")
 
     while True:
-        for ticker in WATCHLIST.keys():
-            try:
-                state = refresh_stock_metrics(ticker)
-                # Dispatch if in active corridor, or remove condition to broadcast all
-                if state["zone_status"] != "NEUTRAL (HOLD / CONSOLIDATION)":
-                    message = format_5pillar_broadcast(state)
-                    dispatch_broadcast(message)
-                    time.sleep(2)  # Short pause between sends to avoid Telegram rate limits
-            except Exception as e:
-                print(f"Error processing {ticker}: {e}")
+        ticker = tickers[idx % len(tickers)]
+        try:
+            state = refresh_stock_metrics(ticker)
+            message = format_5pillar_broadcast(state)
+            dispatch_broadcast(message)
+        except Exception as e:
+            print(f"Error processing {ticker}: {e}")
 
-        # Sleep for 15 minutes between full universe scans
+        idx += 1
+        # 15 minutes = 900 seconds
         time.sleep(900)
+
+if __name__ == "__main__":
+    worker_thread = threading.Thread(target=continuous_broadcast_worker, daemon=True)
+    worker_thread.start()
+
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
