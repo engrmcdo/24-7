@@ -11,26 +11,26 @@ from datetime import datetime
 import pytz
 
 # ==============================================================================
-# 1. FastAPI HTTP Server (Enables 24/7 Free Hosting)
+# 1. FastAPI HTTP Server (For 24/7 Free Hosting Keep-Alive)
 # ==============================================================================
-app = FastAPI(title="PSE Dynamic Broadcast Engine")
+app = FastAPI(title="PSE Dynamic Broadcast Engine (Telegram)")
 
 @app.get("/")
 @app.get("/health")
 def health():
     return {
         "status": "online",
-        "service": "PSE 5-Pillar Broadcast Engine",
+        "service": "PSE 5-Pillar Broadcast Engine via Telegram",
         "timestamp": time.time()
     }
 
 PHT = pytz.timezone("Asia/Manila")
 
 # ==============================================================================
-# 2. Monitored Watchlist: Blue Chips + GCash (Mynt)
+# 2. Monitored Watchlist: 14 PSE Blue Chips + GCash (Mynt, Inc.)
 # ==============================================================================
 WATCHLIST = {
-    "GCASH": {"name": "Mynt, Inc. (Digital Financial Services)", "yf_sym": "GCASH.PS", "base_s": 5.95, "base_r": 6.76, "pb": "4.8x", "pe": "24.5x", "sector": "Fintech", "catalysts": "Micro-lending expansion (GLoan/GCredit), remittance ubiquity.", "risks": "Digital bank competition, credit rate caps."},
+    "GCASH": {"name": "Mynt, Inc. (Digital Financial Services)", "yf_sym": "GLO.PS", "base_s": 5.95, "base_r": 6.76, "pb": "4.8x", "pe": "24.5x", "sector": "Fintech", "catalysts": "Micro-lending expansion (GLoan/GCredit), remittance ubiquity.", "risks": "Digital bank competition, credit rate caps."},
     "GLO": {"name": "Globe Telecom, Inc.", "yf_sym": "GLO.PS", "base_s": 1450.00, "base_r": 1650.00, "pb": "1.8x", "pe": "12.4x", "sector": "Telecommunications", "catalysts": "Data monetization, digital solutions, capex reduction.", "risks": "Network capex depreciation, mobile broadband price competition."},
     "AC": {"name": "Ayala Corporation", "yf_sym": "AC.PS", "base_s": 520.00, "base_r": 590.00, "pb": "0.8x", "pe": "10.1x", "sector": "Conglomerates", "catalysts": "Broad portfolio earnings resilience, renewable power expansion.", "risks": "Holding company net asset value discount, interest rate sensitivity."},
     "BPI": {"name": "Bank of the Philippine Islands", "yf_sym": "BPI.PS", "base_s": 92.00, "base_r": 110.00, "pb": "1.2x", "pe": "8.8x", "sector": "Banking", "catalysts": "Digital channel integration, post-merger branch synergies.", "risks": "Deposit cost pressure, monetary policy cycle shifts."},
@@ -48,7 +48,7 @@ WATCHLIST = {
 }
 
 # ==============================================================================
-# 3. Dynamic Calculation Engine (Wilder RSI, Moving Averages, Zones)
+# 3. Dynamic Calculation Engine
 # ==============================================================================
 def calculate_wilders_rsi(series: pd.Series, period: int = 14) -> float:
     if len(series) < period + 1:
@@ -67,14 +67,13 @@ def calculate_wilders_rsi(series: pd.Series, period: int = 14) -> float:
     return round(100.0 - (100.0 / (1.0 + rs)), 1)
 
 def evaluate_stock_state(ticker: str, meta: dict) -> dict:
-    """Calculates live technical metrics and categorizes ACCUMULATION, PROFIT-TAKING, or NEUTRAL."""
     cur_p = meta["base_s"] * 1.05
     dyn_s = meta["base_s"]
     dyn_r = meta["base_r"]
     rsi_val = 50.0
     ma20 = (dyn_s + dyn_r) / 2
 
-    # Query exchange data
+    # Query live daily exchange candles
     try:
         t = yf.Ticker(meta["yf_sym"])
         df = t.history(period="3mo", interval="1d")
@@ -103,11 +102,11 @@ def evaluate_stock_state(ticker: str, meta: dict) -> dict:
 
     trend = "Above MA20" if cur_p >= ma20 else "Below MA20"
     
-    # Mathematical Corridor Formulas (gem.json)
+    # 5-Pillar Dynamic Corridors (gem.json)
     buy_band = f"₱{(dyn_s * 0.995):,.2f} – ₱{(dyn_s * 1.010):,.2f}"
     sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.005):,.2f}"
 
-    # 3-State Condition Logic
+    # 3-State Condition Logic[cite: 1]
     if cur_p <= dyn_s * 1.015:
         zone_status = "ACCUMULATION (BUY ZONE)"
         status_tag = "🟢 ACCUMULATION"
@@ -139,60 +138,67 @@ def evaluate_stock_state(ticker: str, meta: dict) -> dict:
     }
 
 # ==============================================================================
-# 4. 5-Pillar Broadcast Formatter
+# 4. 5-Pillar Telegram Formatter
 # ==============================================================================
-def format_5pillar_broadcast(s: dict) -> str:
+def format_5pillar_telegram(s: dict) -> str:
     now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
     
-    return f"""
-📢 **[PSE MARKET RADAR] {s['status_tag']} — {s['ticker']}**
+    return f"""📢 *[PSE MARKET RADAR] {s['status_tag']} — {s['ticker']}*
 *Timestamp: {now_str}*
 
-**1. Technical Chart Analysis**
-• **Market Price:** ₱{s['price']:,.2f} | **Trend:** {s['trend']} (MA20: ₱{s['ma20']:,.2f})
-• **Key Support (Floor):** ₱{s['support']:,.2f}
-• **Key Resistance (Ceiling):** ₱{s['resistance']:,.2f}
-• **Wilder RSI (14D):** {s['rsi']:.1f}
-• *Note:* Based on recent price action, support aligns near ₱{s['support']:,.2f} and resistance near ₱{s['resistance']:,.2f}. Traders monitor these levels for liquidity absorption or trend exhaustion.
+*1. Technical Chart Analysis*[cite: 1]
+• *Market Price:* ₱{s['price']:,.2f} | *Trend:* {s['trend']} (MA20: ₱{s['ma20']:,.2f})
+• *Key Support (Floor):* ₱{s['support']:,.2f}[cite: 1]
+• *Key Resistance (Ceiling):* ₱{s['resistance']:,.2f}[cite: 1]
+• *Wilder RSI (14D):* {s['rsi']:.1f}[cite: 1]
+• *Note:* Based on recent price action, support aligns near ₱{s['support']:,.2f} and resistance near ₱{s['resistance']:,.2f}[cite: 1]. Traders monitor these levels for liquidity absorption or trend exhaustion[cite: 1].
 
-**2. Fundamental Profile & Valuation Anchor**
-• **Company:** {s['name']} ({s['sector']})
-• **Multiples:** P/E {s['pe']} | P/B {s['pb']}
-• **Key Catalysts:** {s['catalysts']}
-• **Key Risks:** {s['risks']}
+*2. Fundamental Profile & Valuation Anchor*[cite: 1]
+• *Company:* {s['name']} ({s['sector']})
+• *Multiples:* P/E {s['pe']} | P/B {s['pb']}
+• *Key Catalysts:* {s['catalysts']}
+• *Key Risks:* {s['risks']}
 
-**3. Suggested Price Ranges (Analytical Corridors)**
-• 🟢 **Suggested Accumulation Zone:** {s['buy_band']}
-• 🔴 **Suggested Profit-Taking Zone:** {s['sell_band']}
-• **Current Positioning:** **{s['zone_status']}**
-• *Analytical Note:* Corridors reflect historical buyer/seller concentration areas, not trade execution orders.
+*3. Suggested Price Ranges (Analytical Corridors)*[cite: 1]
+• 🟢 *Suggested Accumulation Zone:* {s['buy_band']}[cite: 1]
+• 🔴 *Suggested Profit-Taking Zone:* {s['sell_band']}[cite: 1]
+• *Current Positioning:* *{s['zone_status']}*[cite: 1]
+• *Analytical Note:* Corridors reflect historical buyer/seller concentration areas, not trade execution orders[cite: 1].
 
-**4. Analyst-Style Commentary**
-The issue is currently trading in a **{s['zone_status']}** stance. Technical moving average alignment reflects prevailing institutional sentiment. Fundamental valuation multiples provide structural context relative to sector medians.
+*4. Analyst-Style Commentary*[cite: 1]
+The issue is currently trading in a *{s['zone_status']}* stance[cite: 1]. Technical moving average alignment reflects prevailing institutional sentiment. Fundamental valuation multiples provide structural context relative to sector medians[cite: 1].
 
 ---
-*Pillar 5 Mandatory Safety & Educational Disclaimer: These insights, technical indicators, and suggested price ranges are generated strictly for informational and educational tracking purposes. They do not constitute financial advice, an investment recommendation, an endorsement, or a trade instruction to buy, sell, or hold any security. Always consult a licensed financial advisor before making investment decisions.*
-"""
+_Pillar 5 Mandatory Safety & Educational Disclaimer: These insights, technical indicators, and suggested price ranges are generated strictly for informational and educational tracking purposes[cite: 1]. They do not constitute financial advice, an investment recommendation, an endorsement, or a trade instruction to buy, sell, or hold any security[cite: 1]. Always consult a licensed financial advisor before making investment decisions[cite: 1]._"""
 
 # ==============================================================================
-# 5. Broadcast Dispatcher & Continuous Polling Loop
+# 5. Telegram Dispatcher & Continuous Polling Loop
 # ==============================================================================
-def dispatch_webhook(text: str):
-    webhook_url = os.environ.get("DISCORD_WEBHOOK_URL")
+def send_telegram_message(text: str):
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+
+    print("\n" + "=" * 60)
     print(text)
-    if webhook_url:
-        chunks = [text[i:i+1900] for i in range(0, len(text), 1900)]
-        for chunk in chunks:
-            try:
-                requests.post(webhook_url, json={"content": chunk}, timeout=5)
-            except Exception as e:
-                print(f"Webhook delivery failed: {e}")
+    print("=" * 60 + "\n")
+
+    if bot_token and chat_id:
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "Markdown"
+        }
+        try:
+            requests.post(url, json=payload, timeout=8)
+        except Exception as e:
+            print(f"Telegram dispatch error: {e}")
 
 def continuous_broadcast_worker():
     time.sleep(5)
     tickers = list(WATCHLIST.keys())
     idx = 0
-    print(f"24/7 Broadcast Engine initialized for {len(tickers)} tickers.")
+    print(f"Telegram Broadcast Engine active for {len(tickers)} tickers.")
 
     while True:
         ticker = tickers[idx % len(tickers)]
@@ -200,13 +206,13 @@ def continuous_broadcast_worker():
 
         try:
             state = evaluate_stock_state(ticker, meta)
-            message = format_5pillar_broadcast(state)
-            dispatch_webhook(message)
+            message = format_5pillar_telegram(state)
+            send_telegram_message(message)
         except Exception as e:
             print(f"Error evaluating {ticker}: {e}")
 
         idx += 1
-        time.sleep(60)  # Cycles to the next monitored stock every 60 seconds
+        time.sleep(60)
 
 if __name__ == "__main__":
     worker_thread = threading.Thread(target=continuous_broadcast_worker, daemon=True)
