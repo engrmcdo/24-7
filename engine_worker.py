@@ -25,6 +25,7 @@ MANDATORY_DISCLAIMER = (
 
 # ==============================================================================
 # 1. Monitored Universe: 14 PSE Blue Chips + GCash Proxy (GLO)
+#    Equipped with Multi-Pillar Technical & Fundamental Baseline Knowledge
 # ==============================================================================
 WATCHLIST = {
     "GCASH": {
@@ -173,9 +174,9 @@ WATCHLIST = {
     "JFC": {
         "name": "Jollibee Foods Corporation",
         "sym": "JFC",
-        "last_price": 144.00,
-        "history": [141.0, 146.0, 142.0, 145.5, 143.0, 144.5, 144.0],
-        "pe": "22.8x", "pb": "3.1x", "peg": "1.5x", "ev_ebitda": "12.6x",
+        "last_price": 141.50,
+        "history": [141.0, 146.0, 142.0, 145.5, 143.0, 144.5, 141.50],
+        "pe": "22.4x", "pb": "3.0x", "peg": "1.5x", "ev_ebitda": "12.4x",
         "sector": "Consumer Discretionary / QSR",
         "overview": "Fastest-growing Asian restaurant company with a global brand portfolio spanning fast-food, coffee, and tea.",
         "catalysts": "Accelerating international store network profitability, sustained domestic store sales growth, coffee business scaling.",
@@ -195,12 +196,28 @@ WATCHLIST = {
 }
 
 # ==============================================================================
+# Persistent Anti-Bot HTTP Session with Full Browser Header Fingerprint
+# ==============================================================================
+HTTP_SESSION = requests.Session()
+HTTP_SESSION.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1"
+})
+
+# ==============================================================================
 # 2. PSE Market Schedule Filter (Monday - Friday, 9:00 AM - 3:30 PM PHT)
 # ==============================================================================
 def is_pse_trading_window() -> tuple[bool, str]:
     now = datetime.now(PHT)
-    
-    # Check weekday: Monday = 0, Friday = 4, Saturday = 5, Sunday = 6
     if now.weekday() >= 5:
         return False, "Market closed (Weekend)"
 
@@ -216,7 +233,7 @@ def is_pse_trading_window() -> tuple[bool, str]:
         return False, "Market closed for the day (Ended at 3:30 PM PHT)"
 
 # ==============================================================================
-# 3. Step 0: Real-Time Price Verification
+# 3. Step 0: Real-Time Price Verification (Multi-Tier Anti-Bot Architecture)
 # ==============================================================================
 def fetch_live_pse_quote(ticker: str, meta: dict) -> tuple[float, str]:
     timestamp_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
@@ -227,15 +244,11 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> tuple[float, str]:
         return synthetic_price, timestamp_str
 
     sym = meta["sym"]
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Referer": "https://www.google.com/"
-    }
 
-    # Primary Source: Google Finance
+    # Tier 1: Google Finance HTML Scraper
     try:
         url = f"https://www.google.com/finance/quote/{sym}:PSE"
-        res = requests.get(url, headers=headers, timeout=4)
+        res = HTTP_SESSION.get(url, timeout=6)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
             price_div = soup.find("div", class_="YMlKec fxKbKc")
@@ -244,13 +257,28 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> tuple[float, str]:
                 val = float(raw_text)
                 if val > 0:
                     return round(val, 2), timestamp_str
-    except Exception:
-        pass
+        elif res.status_code in (403, 429):
+            print(f"[SCRAPE WARNING] Google Finance returned HTTP {res.status_code} for {sym}. Switching to Tier 2...")
+    except Exception as e:
+        print(f"[SCRAPE NOTICE] Google Finance tier failed for {sym}: {e}")
 
-    # Secondary Source: MarketWatch
+    # Tier 2: Yahoo Finance Chart API (Direct JSON - bypasses Cloudflare/HTML challenges)
     try:
-        url = f"https://www.marketwatch.com/investing/stock/{sym.lower()}?countrycode=ph"
-        res = requests.get(url, headers=headers, timeout=4)
+        yf_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}.PS?interval=1d&range=1d"
+        res = HTTP_SESSION.get(yf_url, timeout=6)
+        if res.status_code == 200:
+            data = res.json()
+            meta_data = data.get("chart", {}).get("result", [{}])[0].get("meta", {})
+            val = meta_data.get("regularMarketPrice")
+            if val and float(val) > 0:
+                return round(float(val), 2), timestamp_str
+    except Exception as e:
+        print(f"[SCRAPE NOTICE] Yahoo JSON tier failed for {sym}: {e}")
+
+    # Tier 3: MarketWatch Quote Fallback
+    try:
+        mw_url = f"https://www.marketwatch.com/investing/stock/{sym.lower()}?countrycode=ph"
+        res = HTTP_SESSION.get(mw_url, timeout=6)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
             bg_quote = soup.find("bg-quote", class_="value")
@@ -259,9 +287,10 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> tuple[float, str]:
                 val = float(raw_text)
                 if val > 0:
                     return round(val, 2), timestamp_str
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[SCRAPE NOTICE] MarketWatch tier failed for {sym}: {e}")
 
+    print(f"[SCRAPE NOTICE] All live feeds blocked or timed out for {sym}. Using baseline quote: {meta['last_price']}")
     return meta["last_price"], timestamp_str
 
 def fetch_historical_closes(ticker: str, meta: dict) -> list:
@@ -272,7 +301,7 @@ def fetch_historical_closes(ticker: str, meta: dict) -> list:
     }
     try:
         url = f"https://stooq.com/q/d/l/?s={sym.lower()}.ph&i=d"
-        res = requests.get(url, headers=headers, timeout=4)
+        res = HTTP_SESSION.get(url, headers=headers, timeout=5)
         if res.status_code == 200 and "Date,Open,High,Low,Close" in res.text:
             lines = res.text.strip().split("\n")[1:]
             closes = []
@@ -514,7 +543,13 @@ async def market_broadcast_loop():
             print(f"[MARKET ACTIVE - {status_reason}] Executing sweep at {start_str}...")
 
             try:
-                all_states = [refresh_stock_metrics(ticker) for ticker in tickers]
+                all_states = []
+                for ticker in tickers:
+                    st = refresh_stock_metrics(ticker)
+                    all_states.append(st)
+                    # 0.3s jitter delay between ticker queries to prevent rate-limit blocking
+                    await asyncio.sleep(0.3)
+
                 if all_states:
                     digest = format_single_consolidated_digest(all_states)
                     dispatch_broadcast(digest)
