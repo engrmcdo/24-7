@@ -25,7 +25,6 @@ MANDATORY_DISCLAIMER = (
 
 # ==============================================================================
 # 1. Monitored Universe: 14 PSE Blue Chips + GCash Proxy (GLO)
-#    Enriched with Fundamental Valuation Metrics, Catalysts & Structural Risks
 # ==============================================================================
 WATCHLIST = {
     "GCASH": {
@@ -196,11 +195,25 @@ WATCHLIST = {
 }
 
 # ==============================================================================
-# 2. PSE Market Schedule Filter (Bypassed for Immediate Testing)
+# 2. PSE Market Schedule Filter (Monday - Friday, 9:00 AM - 3:30 PM PHT)
 # ==============================================================================
 def is_pse_trading_window() -> tuple[bool, str]:
-    # BYPASSED FOR TESTING: Allows execution at any time regardless of day or hour
-    return True, "Immediate Test Mode (Time-Agnostic Active)"
+    now = datetime.now(PHT)
+    
+    # Check weekday: Monday = 0, Friday = 4, Saturday = 5, Sunday = 6
+    if now.weekday() >= 5:
+        return False, "Market closed (Weekend)"
+
+    current_t = now.time()
+    session_open = dtime(9, 0)
+    session_close = dtime(15, 30)
+
+    if session_open <= current_t <= session_close:
+        return True, "Trading & Auction Window (9:00 AM - 3:30 PM PHT)"
+    elif current_t < session_open:
+        return False, "Pre-market window (Opens at 9:00 AM PHT)"
+    else:
+        return False, "Market closed for the day (Ended at 3:30 PM PHT)"
 
 # ==============================================================================
 # 3. Step 0: Real-Time Price Verification
@@ -375,20 +388,20 @@ def refresh_stock_metrics(ticker: str) -> dict:
     }
 
 # ==============================================================================
-# 5. Formatter & Telegram Dispatcher (Single Consolidated 5-Pillar Digest)
+# 5. Formatter & Telegram Dispatcher (Robust HTML Parsing)
 # ==============================================================================
 def format_single_consolidated_digest(stock_states: list) -> str:
     now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M %p PHT")
 
     lines = [
-        "📊 *[PSE MARKET RADAR] 15-Stock Intelligence Digest*",
-        f"*Step 0 Active Timestamp: {now_str}*",
-        "---"
+        "📊 <b>[PSE MARKET RADAR] 15-Stock Intelligence Digest</b>",
+        f"<b>Step 0 Active Timestamp: {now_str}</b>",
+        "────────────────────"
     ]
 
     for s in stock_states:
         card = (
-            f"{s['status_tag']} *{s['ticker']}* (₱{s['price']:,.2f} | {s['trend']})\n"
+            f"{s['status_tag']} <b>{s['ticker']}</b> (₱{s['price']:,.2f} | {s['trend']})\n"
             f"• S: ₱{s['support']:,.2f} | R: ₱{s['resistance']:,.2f} | RSI: {s['rsi']:.1f}\n"
             f"• 🟢 Buy: {s['buy_band']} | 🔴 Sell: {s['sell_band']}\n"
             f"• Valuation: P/E {s['pe']} | P/B {s['pb']}"
@@ -396,8 +409,8 @@ def format_single_consolidated_digest(stock_states: list) -> str:
         lines.append(card)
 
     lines.extend([
-        "---",
-        f"_{MANDATORY_DISCLAIMER}_"
+        "────────────────────",
+        f"<i>{MANDATORY_DISCLAIMER}</i>"
     ])
 
     return "\n\n".join(lines)
@@ -446,32 +459,6 @@ def generate_single_stock_full_report(ticker: str) -> str:
 """
     return report
 
-def format_single_consolidated_digest(stock_states: list) -> str:
-    now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M %p PHT")
-
-    lines = [
-        "📊 <b>[PSE MARKET RADAR] 15-Stock Intelligence Digest</b>",
-        f"<b>Step 0 Active Timestamp: {now_str}</b>",
-        "────────────────────"
-    ]
-
-    for s in stock_states:
-        card = (
-            f"{s['status_tag']} <b>{s['ticker']}</b> (₱{s['price']:,.2f} | {s['trend']})\n"
-            f"• S: ₱{s['support']:,.2f} | R: ₱{s['resistance']:,.2f} | RSI: {s['rsi']:.1f}\n"
-            f"• 🟢 Buy: {s['buy_band']} | 🔴 Sell: {s['sell_band']}\n"
-            f"• Valuation: P/E {s['pe']} | P/B {s['pb']}"
-        )
-        lines.append(card)
-
-    lines.extend([
-        "────────────────────",
-        f"<i>{MANDATORY_DISCLAIMER}</i>"
-    ])
-
-    return "\n\n".join(lines)
-
-
 def dispatch_broadcast(text: str):
     print("\n" + "=" * 60)
     print(text)
@@ -481,13 +468,11 @@ def dispatch_broadcast(text: str):
     raw_chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip().strip('"').strip("'")
 
     if not raw_token or not raw_chat:
-        print("[CONFIG ERROR] Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in Render Environment.")
+        print("[CONFIG ERROR] Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID.")
         return
 
     clean_token = raw_token.replace("bot", "") if raw_token.startswith("bot") else raw_token
     url = f"https://api.telegram.org/bot{clean_token}/sendMessage"
-    
-    # Use HTML parse mode to prevent markdown escaping crashes
     payload = {
         "chat_id": raw_chat,
         "text": text,
@@ -501,7 +486,6 @@ def dispatch_broadcast(text: str):
             print("[TELEGRAM] Consolidated digest delivered successfully.")
         else:
             print(f"[TELEGRAM ERROR] HTTP {res.status_code}: {res.text}")
-            # Automatic plain-text fallback if HTML tags fail
             plain_payload = {
                 "chat_id": raw_chat,
                 "text": text.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
@@ -515,19 +499,19 @@ def dispatch_broadcast(text: str):
         print(f"[TELEGRAM EXCEPTION] {e}")
 
 # ==============================================================================
-# 6. Scheduled Background Broadcast Loop (Immediate Test Mode)
+# 6. Scheduled Background Broadcast Loop (Mon-Fri 9:00 AM - 3:30 PM PHT)
 # ==============================================================================
 async def market_broadcast_loop():
     await asyncio.sleep(3)
     tickers = list(WATCHLIST.keys())
-    print(f"PSE 5-Pillar Engine initialized: Monitoring {len(tickers)} assets in test mode.")
+    print(f"PSE 5-Pillar Engine initialized: Monitoring {len(tickers)} assets.")
 
     while True:
         is_open, status_reason = is_pse_trading_window()
 
         if is_open:
             start_str = datetime.now(PHT).strftime("%I:%M:%S %p PHT")
-            print(f"[TEST TRIGGER - {status_reason}] Executing sweep at {start_str}...")
+            print(f"[MARKET ACTIVE - {status_reason}] Executing sweep at {start_str}...")
 
             try:
                 all_states = [refresh_stock_metrics(ticker) for ticker in tickers]
@@ -541,7 +525,7 @@ async def market_broadcast_loop():
             await asyncio.sleep(900)
         else:
             now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
-            print(f"[{now_str}] Market inactive. Checking again in 2 minutes...")
+            print(f"[{now_str}] Market inactive: {status_reason}. Checking again in 2 minutes...")
             await asyncio.sleep(120)
 
 # ==============================================================================
@@ -568,6 +552,9 @@ def health():
 
 @app.get("/analyze/{ticker}")
 def analyze_endpoint(ticker: str):
+    """
+    Generates institutional-grade 5-Pillar equity analysis on demand.
+    """
     try:
         report_text = generate_single_stock_full_report(ticker)
         return {
