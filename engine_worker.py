@@ -446,6 +446,32 @@ def generate_single_stock_full_report(ticker: str) -> str:
 """
     return report
 
+def format_single_consolidated_digest(stock_states: list) -> str:
+    now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M %p PHT")
+
+    lines = [
+        "📊 <b>[PSE MARKET RADAR] 15-Stock Intelligence Digest</b>",
+        f"<b>Step 0 Active Timestamp: {now_str}</b>",
+        "────────────────────"
+    ]
+
+    for s in stock_states:
+        card = (
+            f"{s['status_tag']} <b>{s['ticker']}</b> (₱{s['price']:,.2f} | {s['trend']})\n"
+            f"• S: ₱{s['support']:,.2f} | R: ₱{s['resistance']:,.2f} | RSI: {s['rsi']:.1f}\n"
+            f"• 🟢 Buy: {s['buy_band']} | 🔴 Sell: {s['sell_band']}\n"
+            f"• Valuation: P/E {s['pe']} | P/B {s['pb']}"
+        )
+        lines.append(card)
+
+    lines.extend([
+        "────────────────────",
+        f"<i>{MANDATORY_DISCLAIMER}</i>"
+    ])
+
+    return "\n\n".join(lines)
+
+
 def dispatch_broadcast(text: str):
     print("\n" + "=" * 60)
     print(text)
@@ -455,26 +481,36 @@ def dispatch_broadcast(text: str):
     raw_chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip().strip('"').strip("'")
 
     if not raw_token or not raw_chat:
-        print("[CONFIG ERROR] Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID.")
+        print("[CONFIG ERROR] Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in Render Environment.")
         return
 
     clean_token = raw_token.replace("bot", "") if raw_token.startswith("bot") else raw_token
     url = f"https://api.telegram.org/bot{clean_token}/sendMessage"
-    payload = {"chat_id": raw_chat, "text": text, "parse_mode": "Markdown"}
+    
+    # Use HTML parse mode to prevent markdown escaping crashes
+    payload = {
+        "chat_id": raw_chat,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True
+    }
 
     try:
-        res = requests.post(url, json=payload, timeout=8)
+        res = requests.post(url, json=payload, timeout=10)
         if res.status_code == 200:
             print("[TELEGRAM] Consolidated digest delivered successfully.")
-        elif res.status_code == 400:
-            payload.pop("parse_mode")
-            retry_res = requests.post(url, json=payload, timeout=8)
+        else:
+            print(f"[TELEGRAM ERROR] HTTP {res.status_code}: {res.text}")
+            # Automatic plain-text fallback if HTML tags fail
+            plain_payload = {
+                "chat_id": raw_chat,
+                "text": text.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
+            }
+            retry_res = requests.post(url, json=plain_payload, timeout=10)
             if retry_res.status_code == 200:
                 print("[TELEGRAM] Delivered as plain text fallback.")
             else:
-                print(f"[TELEGRAM ERROR] {retry_res.status_code}: {retry_res.text}")
-        else:
-            print(f"[TELEGRAM ERROR] {res.status_code}: {res.text}")
+                print(f"[TELEGRAM FALLBACK ERROR] HTTP {retry_res.status_code}: {retry_res.text}")
     except Exception as e:
         print(f"[TELEGRAM EXCEPTION] {e}")
 
