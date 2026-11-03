@@ -8,13 +8,13 @@ import numpy as np
 from bs4 import BeautifulSoup
 from fastapi import FastAPI
 import uvicorn
-from datetime import datetime, time as dtime
+from datetime import datetime
 import pytz
 
 PHT = pytz.timezone("Asia/Manila")
 
 # ==============================================================================
-# 1. Monitored Universe: 14 PSE Blue Chips + GCash (Mynt, Inc.)
+# 1. Monitored Universe: 14 PSE Blue Chips + GCash Proxy
 # ==============================================================================
 WATCHLIST = {
     "GCASH": {
@@ -125,34 +125,7 @@ WATCHLIST = {
 }
 
 # ==============================================================================
-# 2. Market Schedule Filter: Mon-Fri 9:30 AM - 3:00 PM PHT
-# ==============================================================================
-def is_pse_trading_window() -> tuple[bool, str]:
-    now = datetime.now(PHT)
-    
-    # 0 = Monday, 4 = Friday, 5 = Saturday, 6 = Sunday
-    if now.weekday() >= 5:
-        return False, "Market is closed for the weekend."
-
-    current_t = now.time()
-    morning_open = dtime(9, 30)
-    morning_close = dtime(12, 0)
-    afternoon_open = dtime(13, 0)
-    afternoon_close = dtime(15, 0)
-
-    if morning_open <= current_t <= morning_close:
-        return True, "Morning Trading Session"
-    if afternoon_open <= current_t <= afternoon_close:
-        return True, "Afternoon Trading Session"
-    if morning_close < current_t < afternoon_open:
-        return False, "Market Recess (12:00 PM - 1:00 PM PHT)"
-    if current_t < morning_open:
-        return False, f"Pre-market (opens at 9:30 AM PHT)"
-    
-    return False, f"Market closed for the day (closed at 3:00 PM PHT)"
-
-# ==============================================================================
-# 3. Live Spot Scraper (Google Finance & MarketWatch)
+# 2. Resilient Data Scraper
 # ==============================================================================
 def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
     if ticker == "GCASH":
@@ -167,7 +140,7 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
 
     try:
         url = f"https://www.google.com/finance/quote/{sym}:PSE"
-        res = requests.get(url, headers=headers, timeout=5)
+        res = requests.get(url, headers=headers, timeout=4)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
             price_div = soup.find("div", class_="YMlKec fxKbKc")
@@ -181,7 +154,7 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
 
     try:
         url = f"https://www.marketwatch.com/investing/stock/{sym.lower()}?countrycode=ph"
-        res = requests.get(url, headers=headers, timeout=5)
+        res = requests.get(url, headers=headers, timeout=4)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
             bg_quote = soup.find("bg-quote", class_="value")
@@ -195,19 +168,15 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
 
     return meta["last_price"]
 
-# ==============================================================================
-# 4. Multi-Day History Scraper (For Real Wilder RSI)
-# ==============================================================================
 def fetch_historical_closes(ticker: str, meta: dict) -> list:
     sym = meta["sym"]
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Referer": "https://www.google.com/"
     }
-
     try:
         url = f"https://stooq.com/q/d/l/?s={sym.lower()}.ph&i=d"
-        res = requests.get(url, headers=headers, timeout=5)
+        res = requests.get(url, headers=headers, timeout=4)
         if res.status_code == 200 and "Date,Open,High,Low,Close" in res.text:
             lines = res.text.strip().split("\n")[1:]
             closes = []
@@ -226,7 +195,7 @@ def fetch_historical_closes(ticker: str, meta: dict) -> list:
     return meta["history"]
 
 # ==============================================================================
-# 5. Calculation Engine (Wilder RSI & Corridors)
+# 3. Calculation Engine (Pillar 1: Technical & Pillar 3: Corridors)
 # ==============================================================================
 def calculate_historical_rsi(history: list, period: int = 14) -> float:
     if len(history) < 2:
@@ -290,7 +259,7 @@ def refresh_stock_metrics(ticker: str) -> dict:
     rsi_val = calculate_historical_rsi(state["history"], period=14)
     trend = "Above MA20" if actual_price >= ma20 else "Below MA20"
 
-    # Analytical corridors
+    # Suggested corridors: Accumulation near support, Profit-Taking near resistance
     buy_band = f"₱{(dyn_s * 0.995):,.2f} – ₱{(dyn_s * 1.010):,.2f}"
     sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.005):,.2f}"
 
@@ -303,8 +272,6 @@ def refresh_stock_metrics(ticker: str) -> dict:
 
     return {
         "ticker": ticker,
-        "name": state["name"],
-        "sector": state["sector"],
         "price": actual_price,
         "support": dyn_s,
         "resistance": dyn_r,
@@ -319,13 +286,13 @@ def refresh_stock_metrics(ticker: str) -> dict:
     }
 
 # ==============================================================================
-# 6. Formatter & Telegram Dispatcher
+# 4. Formatter & Telegram Dispatcher (Safe Batching Under 4,096 Chars)
 # ==============================================================================
-def format_consolidated_radar_digest(stock_states: list) -> str:
+def format_digest_batch(stock_states: list, part_num: int, total_parts: int) -> str:
     now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M %p PHT")
 
     lines = [
-        "📊 *[PSE MARKET RADAR] 15-Stock Consolidated Digest*",
+        f"📊 *[PSE MARKET RADAR] Digest (Part {part_num}/{total_parts})*",
         f"*Timestamp: {now_str}*",
         "---"
     ]
@@ -338,10 +305,11 @@ def format_consolidated_radar_digest(stock_states: list) -> str:
             f"• Valuation: P/E {s['pe']} | P/B {s['pb']}"
         )
 
-    lines.extend([
-        "---",
-        "_Pillar 5 Safety Disclaimer: Technical indicator readings and suggested price corridors are generated strictly for educational tracking and informational reference. They do not constitute financial advice or trade recommendations._"
-    ])
+    if part_num == total_parts:
+        lines.extend([
+            "---",
+            "_Pillar 5 Disclaimer: Technical levels and corridors are informational reference points, not financial advice or trade instructions._"
+        ])
 
     return "\n\n".join(lines)
 
@@ -353,66 +321,70 @@ def dispatch_broadcast(text: str):
     raw_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip().strip('"').strip("'")
     raw_chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip().strip('"').strip("'")
 
-    if raw_token and raw_chat:
-        clean_token = raw_token.replace("bot", "") if raw_token.startswith("bot") else raw_token
-        url = f"https://api.telegram.org/bot{clean_token}/sendMessage"
-        payload = {"chat_id": raw_chat, "text": text, "parse_mode": "Markdown"}
-        try:
-            res = requests.post(url, json=payload, timeout=8)
-            if res.status_code == 200:
-                print("[TELEGRAM] 15-Stock Digest delivered successfully.")
-            elif res.status_code == 400:
-                payload.pop("parse_mode")
-                retry_res = requests.post(url, json=payload, timeout=8)
-                if retry_res.status_code == 200:
-                    print("[TELEGRAM] Delivered as plain text.")
-                else:
-                    print(f"[TELEGRAM ERROR] {retry_res.status_code}: {retry_res.text}")
+    if not raw_token or not raw_chat:
+        print("[CONFIG ERROR] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing from Render env variables.")
+        return
+
+    clean_token = raw_token.replace("bot", "") if raw_token.startswith("bot") else raw_token
+    url = f"https://api.telegram.org/bot{clean_token}/sendMessage"
+    payload = {"chat_id": raw_chat, "text": text, "parse_mode": "Markdown"}
+
+    try:
+        res = requests.post(url, json=payload, timeout=8)
+        if res.status_code == 200:
+            print("[TELEGRAM] Message delivered successfully.")
+        elif res.status_code == 400:
+            print("[TELEGRAM] Markdown parse error; retrying plain text...")
+            payload.pop("parse_mode")
+            retry_res = requests.post(url, json=payload, timeout=8)
+            if retry_res.status_code == 200:
+                print("[TELEGRAM] Delivered as plain text.")
             else:
-                print(f"[TELEGRAM ERROR] {res.status_code}: {res.text}")
-        except Exception as e:
-            print(f"[TELEGRAM EXCEPTION] {e}")
+                print(f"[TELEGRAM ERROR] {retry_res.status_code}: {retry_res.text}")
+        else:
+            print(f"[TELEGRAM ERROR] {res.status_code}: {res.text}")
+    except Exception as e:
+        print(f"[TELEGRAM EXCEPTION] {e}")
 
 # ==============================================================================
-# 7. Scheduled Broadcast Loop (Mon-Fri 9:30 AM - 3:00 PM PHT)
+# 5. Broadcast Loop (Immediate Test Run + 15-Min Continuous Cycle)
 # ==============================================================================
 async def market_broadcast_loop():
-    await asyncio.sleep(5)  # Allow Uvicorn to complete port binding
+    # Short 3-second startup buffer to allow web server to bind port
+    await asyncio.sleep(3)
     tickers = list(WATCHLIST.keys())
-    print(f"PSE Radar active across {len(tickers)} stocks.")
-    print("Schedule: Monday to Friday, 9:30 AM to 3:00 PM PHT (15-min intervals).\n")
+    print(f"\n[TEST MODE ACTIVE] Initializing immediate broadcast for all {len(tickers)} stocks...")
 
     while True:
-        is_open, status_reason = is_pse_trading_window()
-
-        if is_open:
+        try:
             start_str = datetime.now(PHT).strftime("%I:%M:%S %p PHT")
-            print(f"[MARKET ACTIVE - {status_reason}] Executing sweep at {start_str}...")
+            print(f"[SWEEP START] Scraping 15 stocks at {start_str}...")
 
-            try:
-                all_states = []
-                for ticker in tickers:
-                    state = refresh_stock_metrics(ticker)
-                    all_states.append(state)
+            all_states = []
+            for ticker in tickers:
+                state = refresh_stock_metrics(ticker)
+                all_states.append(state)
 
-                if all_states:
-                    digest = format_consolidated_radar_digest(all_states)
-                    dispatch_broadcast(digest)
-            except Exception as e:
-                print(f"[LOOP ERROR] {e}")
+            if all_states:
+                # Split into two batches to strictly stay within Telegram's 4,096 char cap
+                batch_1 = all_states[:8]
+                batch_2 = all_states[8:]
 
-            # Wait 15 minutes between broadcasts during market hours
-            print("[BREAK] Next sweep in 15 minutes (900s)...\n")
-            await asyncio.sleep(900)
+                msg_1 = format_digest_batch(batch_1, 1, 2)
+                dispatch_broadcast(msg_1)
+                await asyncio.sleep(2)  # Avoid rate limit
 
-        else:
-            now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
-            print(f"[{now_str}] Market inactive: {status_reason}. Checking again in 2 minutes...")
-            # Outside market hours, sleep in 2-minute increments to catch market open promptly
-            await asyncio.sleep(120)
+                msg_2 = format_digest_batch(batch_2, 2, 2)
+                dispatch_broadcast(msg_2)
+
+        except Exception as e:
+            print(f"[LOOP ERROR] {e}")
+
+        print("[BREAK] Sleeping for 15 minutes (900s) until next broadcast...\n")
+        await asyncio.sleep(900)
 
 # ==============================================================================
-# 8. FastAPI Initialization & Lifespan
+# 6. FastAPI App & Render Port Binding
 # ==============================================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -425,11 +397,9 @@ app = FastAPI(title="PSE Dynamic Broadcast Engine", lifespan=lifespan)
 @app.get("/")
 @app.get("/health")
 def health():
-    is_open, status_reason = is_pse_trading_window()
     return {
         "status": "online",
-        "market_open": is_open,
-        "schedule_status": status_reason,
+        "mode": "Immediate Test & 15-min Loop (No Time Restrictions)",
         "timestamp_pht": datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p")
     }
 
