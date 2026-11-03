@@ -196,7 +196,7 @@ WATCHLIST = {
 }
 
 # ==============================================================================
-# 2. Market Schedule Filter: Bypassed for Immediate Testing
+# 2. PSE Market Schedule Filter (Bypassed for Immediate Testing)
 # ==============================================================================
 def is_pse_trading_window() -> tuple[bool, str]:
     # BYPASSED FOR TESTING: Allows execution at any time regardless of day or hour
@@ -314,7 +314,6 @@ def calculate_wilders_rsi(history: list, period: int = 14) -> float:
 def refresh_stock_metrics(ticker: str) -> dict:
     state = WATCHLIST[ticker]
 
-    # Step 0: Mandatory Real-Time Price Verification
     if ticker == "GCASH":
         glo_history = fetch_historical_closes("GLO", WATCHLIST["GLO"])
         ratio = 6.72 / 1537.00
@@ -341,7 +340,6 @@ def refresh_stock_metrics(ticker: str) -> dict:
     rsi_val = calculate_wilders_rsi(state["history"], period=14)
     trend = "Above MA20" if actual_price >= ma20 else "Below MA20"
 
-    # Analytical Corridors (Support -1.0% to +1.5%, Resistance -1.0% to +1.5%)
     buy_band = f"₱{(dyn_s * 0.990):,.2f} – ₱{(dyn_s * 1.015):,.2f}"
     sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.015):,.2f}"
 
@@ -390,7 +388,7 @@ def format_single_consolidated_digest(stock_states: list) -> str:
 
     for s in stock_states:
         card = (
-            f"{s['status_tag']} *{s['ticker']}* (₱{s['price']:,.2f} | {s['trend'])}\n"
+            f"{s['status_tag']} *{s['ticker']}* (₱{s['price']:,.2f} | {s['trend']})\n"
             f"• S: ₱{s['support']:,.2f} | R: ₱{s['resistance']:,.2f} | RSI: {s['rsi']:.1f}\n"
             f"• 🟢 Buy: {s['buy_band']} | 🔴 Sell: {s['sell_band']}\n"
             f"• Valuation: P/E {s['pe']} | P/B {s['pb']}"
