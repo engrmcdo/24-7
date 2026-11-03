@@ -196,39 +196,16 @@ WATCHLIST = {
 }
 
 # ==============================================================================
-# 2. PSE Market Schedule Filter (Mon-Fri 9:30 AM - 3:00 PM PHT)
+# 2. Market Schedule Filter: Bypassed for Immediate Testing
 # ==============================================================================
 def is_pse_trading_window() -> tuple[bool, str]:
-    now = datetime.now(PHT)
-    if now.weekday() >= 5:
-        return False, "Market closed (Weekend)"
-
-    current_t = now.time()
-    morning_open = dtime(9, 30)
-    morning_close = dtime(12, 0)
-    afternoon_open = dtime(13, 0)
-    afternoon_close = dtime(15, 0)
-
-    if morning_open <= current_t <= morning_close:
-        return True, "Morning Trading Session"
-    if afternoon_open <= current_t <= afternoon_close:
-        return True, "Afternoon Trading Session"
-    if morning_close < current_t < afternoon_open:
-        return False, "Market Recess (12:00 PM - 1:00 PM PHT)"
-    if current_t < morning_open:
-        return False, "Pre-market (Opens 9:30 AM PHT)"
-    return False, "Market closed for the day (Closed 3:00 PM PHT)"
+    # BYPASSED FOR TESTING: Allows execution at any time regardless of day or hour
+    return True, "Immediate Test Mode (Time-Agnostic Active)"
 
 # ==============================================================================
 # 3. Step 0: Real-Time Price Verification
 # ==============================================================================
 def fetch_live_pse_quote(ticker: str, meta: dict) -> tuple[float, str]:
-    """
-    Mandatory Step 0:
-    1. Fetches and confirms the latest actual market price (Spot / LTP).
-    2. Returns the active price with timestamp.
-    3. Anchors all technical and valuation metrics to this verified price.
-    """
     timestamp_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
 
     if ticker == "GCASH":
@@ -412,12 +389,13 @@ def format_single_consolidated_digest(stock_states: list) -> str:
     ]
 
     for s in stock_states:
-        lines.append(
-            f"{s['status_tag']} *{s['ticker']}* (₱{s['price']:,.2f} | {s['trend']})\n"
+        card = (
+            f"{s['status_tag']} *{s['ticker']}* (₱{s['price']:,.2f} | {s['trend'])}\n"
             f"• S: ₱{s['support']:,.2f} | R: ₱{s['resistance']:,.2f} | RSI: {s['rsi']:.1f}\n"
             f"• 🟢 Buy: {s['buy_band']} | 🔴 Sell: {s['sell_band']}\n"
             f"• Valuation: P/E {s['pe']} | P/B {s['pb']}"
         )
+        lines.append(card)
 
     lines.extend([
         "---",
@@ -503,19 +481,19 @@ def dispatch_broadcast(text: str):
         print(f"[TELEGRAM EXCEPTION] {e}")
 
 # ==============================================================================
-# 6. Scheduled Background Broadcast Loop (Mon-Fri 9:30 AM - 3:00 PM PHT)
+# 6. Scheduled Background Broadcast Loop (Immediate Test Mode)
 # ==============================================================================
 async def market_broadcast_loop():
     await asyncio.sleep(3)
     tickers = list(WATCHLIST.keys())
-    print(f"PSE 5-Pillar Engine initialized: Monitoring {len(tickers)} assets.")
+    print(f"PSE 5-Pillar Engine initialized: Monitoring {len(tickers)} assets in test mode.")
 
     while True:
         is_open, status_reason = is_pse_trading_window()
 
         if is_open:
             start_str = datetime.now(PHT).strftime("%I:%M:%S %p PHT")
-            print(f"[MARKET ACTIVE - {status_reason}] Executing sweep at {start_str}...")
+            print(f"[TEST TRIGGER - {status_reason}] Executing sweep at {start_str}...")
 
             try:
                 all_states = [refresh_stock_metrics(ticker) for ticker in tickers]
@@ -529,7 +507,7 @@ async def market_broadcast_loop():
             await asyncio.sleep(900)
         else:
             now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
-            print(f"[{now_str}] Market inactive: {status_reason}. Checking again in 2 minutes...")
+            print(f"[{now_str}] Market inactive. Checking again in 2 minutes...")
             await asyncio.sleep(120)
 
 # ==============================================================================
@@ -556,9 +534,6 @@ def health():
 
 @app.get("/analyze/{ticker}")
 def analyze_endpoint(ticker: str):
-    """
-    Generates institutional-grade 5-Pillar equity analysis on demand.
-    """
     try:
         report_text = generate_single_stock_full_report(ticker)
         return {
