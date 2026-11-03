@@ -1,20 +1,19 @@
 import os
-import time
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime, time as dtime
+import pytz
 import requests
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
 from fastapi import FastAPI
 import uvicorn
-from datetime import datetime
-import pytz
 
 PHT = pytz.timezone("Asia/Manila")
 
 # ==============================================================================
-# 1. Monitored Universe: 14 PSE Blue Chips + GCash Proxy
+# 1. Monitored Universe: 14 PSE Blue Chips + GCash Proxy (GLO)
 # ==============================================================================
 WATCHLIST = {
     "GCASH": {
@@ -22,115 +21,175 @@ WATCHLIST = {
         "sym": "GLO",
         "last_price": 6.72,
         "history": [6.60, 6.68, 6.62, 6.75, 6.70, 6.64, 6.71, 6.72],
-        "pb": "4.8x", "pe": "24.5x", "sector": "Fintech / Digital Financial Services"
+        "pb": "4.8x", "pe": "24.5x", "sector": "Fintech / Digital Financial Services",
+        "catalysts": "Micro-lending expansion (GLoan, GCredit), remittance scaling.",
+        "risks": "Digital banking competition, regulatory caps on credit spreads."
     },
     "GLO": {
         "name": "Globe Telecom, Inc.",
         "sym": "GLO",
         "last_price": 1537.00,
         "history": [1520.0, 1545.0, 1530.0, 1550.0, 1525.0, 1535.0, 1537.0],
-        "pb": "1.8x", "pe": "12.4x", "sector": "Telecommunications"
+        "pb": "1.8x", "pe": "12.4x", "sector": "Telecommunications",
+        "catalysts": "Data monetization, digital solutions expansion, capex reduction.",
+        "risks": "Network capex depreciation, mobile broadband price competition."
     },
     "AC": {
         "name": "Ayala Corporation",
         "sym": "AC",
         "last_price": 540.00,
         "history": [535.0, 545.0, 532.0, 542.0, 538.0, 544.0, 540.0],
-        "pb": "0.8x", "pe": "10.1x", "sector": "Conglomerates / Holding Firms"
+        "pb": "0.8x", "pe": "10.1x", "sector": "Conglomerates / Holding Firms",
+        "catalysts": "Renewable power expansion, banking transaction growth.",
+        "risks": "NAV holding discount, interest rate sensitivity."
     },
     "BPI": {
         "name": "Bank of the Philippine Islands",
         "sym": "BPI",
         "last_price": 94.00,
         "history": [93.0, 95.0, 93.5, 94.5, 92.8, 93.8, 94.0],
-        "pb": "1.2x", "pe": "8.8x", "sector": "Banking / Financial Services"
+        "pb": "1.2x", "pe": "8.8x", "sector": "Banking / Financial Services",
+        "catalysts": "Digital channel integration, post-merger branch synergies.",
+        "risks": "Deposit cost pressure, margin compression upon rate cuts."
     },
     "TEL": {
         "name": "PLDT Inc.",
         "sym": "TEL",
         "last_price": 1126.00,
         "history": [1110.0, 1135.0, 1120.0, 1140.0, 1118.0, 1130.0, 1126.0],
-        "pb": "1.4x", "pe": "11.2x", "sector": "Telecommunications"
+        "pb": "1.4x", "pe": "11.2x", "sector": "Telecommunications",
+        "catalysts": "Enterprise data center growth, steady dividend yield.",
+        "risks": "Fixed broadband competition, legacy debt servicing."
     },
     "ALI": {
         "name": "Ayala Land, Inc.",
         "sym": "ALI",
         "last_price": 15.20,
         "history": [15.10, 15.40, 14.95, 15.30, 15.05, 15.25, 15.20],
-        "pb": "0.6x", "pe": "8.9x", "sector": "Real Estate"
+        "pb": "0.6x", "pe": "8.9x", "sector": "Real Estate",
+        "catalysts": "Commercial leasing recovery, stable residential presales.",
+        "risks": "Mortgage rate sensitivity, construction material inflation."
     },
     "BDO": {
         "name": "BDO Unibank, Inc.",
         "sym": "BDO",
         "last_price": 117.10,
         "history": [116.0, 118.5, 115.5, 117.8, 116.4, 117.5, 117.1],
-        "pb": "1.0x", "pe": "8.4x", "sector": "Banking"
+        "pb": "1.0x", "pe": "8.4x", "sector": "Banking",
+        "catalysts": "Market-leading loan portfolio, diversified fee income.",
+        "risks": "Delayed monetary policy easing, credit cost fluctuations."
     },
     "ICT": {
         "name": "Intl Container Terminal Services",
         "sym": "ICT",
         "last_price": 820.00,
         "history": [815.0, 830.0, 810.0, 825.0, 818.0, 822.0, 820.0],
-        "pb": "3.5x", "pe": "18.2x", "sector": "Port Logistics"
+        "pb": "3.5x", "pe": "18.2x", "sector": "Port Logistics",
+        "catalysts": "Global volume throughput growth, port tariff adjustments.",
+        "risks": "Global trade disruptions, concession renewal capex."
     },
     "SMPH": {
         "name": "SM Prime Holdings",
         "sym": "SMPH",
         "last_price": 17.54,
         "history": [17.30, 17.80, 17.20, 17.65, 17.40, 17.60, 17.54],
-        "pb": "1.1x", "pe": "14.5x", "sector": "Real Estate / Commercial Malls"
+        "pb": "1.1x", "pe": "14.5x", "sector": "Real Estate / Commercial Malls",
+        "catalysts": "Provincial mall foot traffic, resilient tenant rental yields.",
+        "risks": "Inflationary pressure on retail discretionary spend."
     },
     "SM": {
         "name": "SM Investments Corp.",
         "sym": "SM",
         "last_price": 534.00,
         "history": [525.0, 540.0, 528.0, 538.0, 530.0, 536.0, 534.0],
-        "pb": "1.3x", "pe": "13.2x", "sector": "Conglomerates"
+        "pb": "1.3x", "pe": "13.2x", "sector": "Conglomerates",
+        "catalysts": "Core consumer spending proxy across retail, banking, property.",
+        "risks": "Compression in discretionary consumer purchasing power."
     },
     "MBT": {
         "name": "Metrobank",
         "sym": "MBT",
         "last_price": 60.75,
         "history": [60.0, 61.5, 59.8, 61.0, 60.2, 60.9, 60.75],
-        "pb": "0.7x", "pe": "6.8x", "sector": "Banking"
+        "pb": "0.7x", "pe": "6.8x", "sector": "Banking",
+        "catalysts": "High Tier-1 capital adequacy, capacity for dividend expansion.",
+        "risks": "Loan margin compression during aggressive rate cuts."
     },
     "MER": {
         "name": "Manila Electric Company",
         "sym": "MER",
         "last_price": 429.80,
         "history": [422.0, 434.0, 426.0, 432.0, 425.0, 430.0, 429.8],
-        "pb": "1.9x", "pe": "12.0x", "sector": "Utilities / Power Distribution"
+        "pb": "1.9x", "pe": "12.0x", "sector": "Utilities / Power Distribution",
+        "catalysts": "Guaranteed distribution asset base, consistent power demand.",
+        "risks": "Regulatory rate review scrutiny, fuel cost pass-through lag."
     },
     "MONDE": {
         "name": "Monde Nissin",
         "sym": "MONDE",
         "last_price": 5.90,
         "history": [5.80, 6.00, 5.75, 5.95, 5.85, 5.92, 5.90],
-        "pb": "2.2x", "pe": "16.5x", "sector": "Consumer Staples / Food"
+        "pb": "2.2x", "pe": "16.5x", "sector": "Consumer Staples / Food",
+        "catalysts": "Core noodles volume leadership, lower commodity input costs.",
+        "risks": "Meat alternative segment drag, agricultural commodity spikes."
     },
     "JFC": {
         "name": "Jollibee Foods Corporation",
         "sym": "JFC",
         "last_price": 144.00,
         "history": [141.0, 146.0, 142.0, 145.5, 143.0, 144.5, 144.0],
-        "pb": "3.1x", "pe": "22.8x", "sector": "Consumer Discretionary / QSR"
+        "pb": "3.1x", "pe": "22.8x", "sector": "Consumer Discretionary / QSR",
+        "catalysts": "Global footprint expansion, domestic quick-service resilience.",
+        "risks": "Store labor inflation, international acquisition integration costs."
     },
     "PGOLD": {
         "name": "Puregold Price Club",
         "sym": "PGOLD",
         "last_price": 40.00,
         "history": [39.2, 40.5, 39.4, 40.2, 39.6, 40.1, 40.0],
-        "pb": "0.8x", "pe": "10.4x", "sector": "Consumer Staples / Grocery Retail"
+        "pb": "0.8x", "pe": "10.4x", "sector": "Consumer Staples / Grocery Retail",
+        "catalysts": "Provincial footprint rollout, resilient grocery demand.",
+        "risks": "Competition from hard discounters, margin compression."
     }
 }
 
 # ==============================================================================
-# 2. Resilient Data Scraper
+# 2. Market Schedule Filter (Mon-Fri, 9:30 AM - 3:00 PM PHT)
 # ==============================================================================
-def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
+def is_pse_trading_window() -> tuple[bool, str]:
+    now = datetime.now(PHT)
+    if now.weekday() >= 5:
+        return False, "Market closed (Weekend)"
+
+    current_t = now.time()
+    morning_open = dtime(9, 30)
+    morning_close = dtime(12, 0)
+    afternoon_open = dtime(13, 0)
+    afternoon_close = dtime(15, 0)
+
+    if morning_open <= current_t <= morning_close:
+        return True, "Morning Trading Session"
+    if afternoon_open <= current_t <= afternoon_close:
+        return True, "Afternoon Trading Session"
+    if morning_close < current_t < afternoon_open:
+        return False, "Market Recess (12:00 PM - 1:00 PM PHT)"
+    if current_t < morning_open:
+        return False, "Pre-market (Opens 9:30 AM PHT)"
+    return False, "Market closed for the day (Closed 3:00 PM PHT)"
+
+# ==============================================================================
+# 3. Step 0: Live Spot Scraping & Real-Time Price Verification
+# ==============================================================================
+def fetch_live_pse_quote(ticker: str, meta: dict) -> tuple[float, str]:
+    """
+    Step 0: Fetches the verified Last Traded Price (LTP) with timestamp.
+    """
+    timestamp_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
+
     if ticker == "GCASH":
-        glo_price = fetch_live_pse_quote("GLO", WATCHLIST["GLO"])
-        return round(glo_price * (6.72 / 1537.00), 2)
+        glo_price, _ = fetch_live_pse_quote("GLO", WATCHLIST["GLO"])
+        synthetic_price = round(glo_price * (6.72 / 1537.00), 2)
+        return synthetic_price, timestamp_str
 
     sym = meta["sym"]
     headers = {
@@ -138,6 +197,7 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
         "Referer": "https://www.google.com/"
     }
 
+    # Primary: Google Finance
     try:
         url = f"https://www.google.com/finance/quote/{sym}:PSE"
         res = requests.get(url, headers=headers, timeout=4)
@@ -148,10 +208,11 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
                 raw_text = price_div.text.replace("₱", "").replace(",", "").strip()
                 val = float(raw_text)
                 if val > 0:
-                    return round(val, 2)
+                    return round(val, 2), timestamp_str
     except Exception:
         pass
 
+    # Secondary: MarketWatch
     try:
         url = f"https://www.marketwatch.com/investing/stock/{sym.lower()}?countrycode=ph"
         res = requests.get(url, headers=headers, timeout=4)
@@ -162,11 +223,11 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> float:
                 raw_text = bg_quote.text.replace(",", "").strip()
                 val = float(raw_text)
                 if val > 0:
-                    return round(val, 2)
+                    return round(val, 2), timestamp_str
     except Exception:
         pass
 
-    return meta["last_price"]
+    return meta["last_price"], timestamp_str
 
 def fetch_historical_closes(ticker: str, meta: dict) -> list:
     sym = meta["sym"]
@@ -195,7 +256,7 @@ def fetch_historical_closes(ticker: str, meta: dict) -> list:
     return meta["history"]
 
 # ==============================================================================
-# 3. Calculation Engine (Pillar 1: Technical & Pillar 3: Corridors)
+# 4. Indicator Calculation (Wilder RSI, Moving Averages, S/R Corridors)
 # ==============================================================================
 def calculate_historical_rsi(history: list, period: int = 14) -> float:
     if len(history) < 2:
@@ -237,14 +298,16 @@ def calculate_historical_rsi(history: list, period: int = 14) -> float:
 def refresh_stock_metrics(ticker: str) -> dict:
     state = WATCHLIST[ticker]
 
+    # Step 0: Real-Time Verified Price
     if ticker == "GCASH":
         glo_history = fetch_historical_closes("GLO", WATCHLIST["GLO"])
         ratio = 6.72 / 1537.00
         history = [round(p * ratio, 2) for p in glo_history]
-        actual_price = round(fetch_live_pse_quote("GLO", WATCHLIST["GLO"]) * ratio, 2)
+        actual_price, quote_time = fetch_live_pse_quote("GLO", WATCHLIST["GLO"])
+        actual_price = round(actual_price * ratio, 2)
     else:
         history = fetch_historical_closes(ticker, state)
-        actual_price = fetch_live_pse_quote(ticker, state)
+        actual_price, quote_time = fetch_live_pse_quote(ticker, state)
 
     if not history or history[-1] != actual_price:
         history.append(actual_price)
@@ -259,9 +322,9 @@ def refresh_stock_metrics(ticker: str) -> dict:
     rsi_val = calculate_historical_rsi(state["history"], period=14)
     trend = "Above MA20" if actual_price >= ma20 else "Below MA20"
 
-    # Suggested corridors: Accumulation near support, Profit-Taking near resistance
-    buy_band = f"₱{(dyn_s * 0.995):,.2f} – ₱{(dyn_s * 1.010):,.2f}"
-    sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.005):,.2f}"
+    # Pillar 3: Analytical Corridors (Support -1% to +1.5%, Resistance -1% to +1.5%)
+    buy_band = f"₱{(dyn_s * 0.990):,.2f} – ₱{(dyn_s * 1.015):,.2f}"
+    sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.015):,.2f}"
 
     if actual_price <= dyn_s * 1.015 or rsi_val <= 30.0:
         status_tag = "🟢 ACCUMULATION"
@@ -272,7 +335,9 @@ def refresh_stock_metrics(ticker: str) -> dict:
 
     return {
         "ticker": ticker,
+        "name": state["name"],
         "price": actual_price,
+        "timestamp": quote_time,
         "support": dyn_s,
         "resistance": dyn_r,
         "ma20": ma20,
@@ -286,14 +351,14 @@ def refresh_stock_metrics(ticker: str) -> dict:
     }
 
 # ==============================================================================
-# 4. Formatter & Telegram Dispatcher (Safe Batching Under 4,096 Chars)
+# 5. Formatter & Telegram Dispatcher (Single Consolidated Message)
 # ==============================================================================
-def format_digest_batch(stock_states: list, part_num: int, total_parts: int) -> str:
+def format_single_consolidated_digest(stock_states: list) -> str:
     now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M %p PHT")
 
     lines = [
-        f"📊 *[PSE MARKET RADAR] Digest (Part {part_num}/{total_parts})*",
-        f"*Timestamp: {now_str}*",
+        "📊 *[PSE MARKET RADAR] 15-Stock Intelligence Digest*",
+        f"*Step 0 Active Timestamp: {now_str}*",
         "---"
     ]
 
@@ -305,11 +370,10 @@ def format_digest_batch(stock_states: list, part_num: int, total_parts: int) -> 
             f"• Valuation: P/E {s['pe']} | P/B {s['pb']}"
         )
 
-    if part_num == total_parts:
-        lines.extend([
-            "---",
-            "_Pillar 5 Disclaimer: Technical levels and corridors are informational reference points, not financial advice or trade instructions._"
-        ])
+    lines.extend([
+        "---",
+        "_⚠️ Informational Notice: Technical indicators and analytical corridors are generated strictly for tracking and educational reference. They do not constitute financial advice or trade recommendations._"
+    ])
 
     return "\n\n".join(lines)
 
@@ -322,7 +386,7 @@ def dispatch_broadcast(text: str):
     raw_chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip().strip('"').strip("'")
 
     if not raw_token or not raw_chat:
-        print("[CONFIG ERROR] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing from Render env variables.")
+        print("[CONFIG ERROR] Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID.")
         return
 
     clean_token = raw_token.replace("bot", "") if raw_token.startswith("bot") else raw_token
@@ -332,13 +396,12 @@ def dispatch_broadcast(text: str):
     try:
         res = requests.post(url, json=payload, timeout=8)
         if res.status_code == 200:
-            print("[TELEGRAM] Message delivered successfully.")
+            print("[TELEGRAM] Consolidated digest delivered successfully.")
         elif res.status_code == 400:
-            print("[TELEGRAM] Markdown parse error; retrying plain text...")
             payload.pop("parse_mode")
             retry_res = requests.post(url, json=payload, timeout=8)
             if retry_res.status_code == 200:
-                print("[TELEGRAM] Delivered as plain text.")
+                print("[TELEGRAM] Delivered as plain text fallback.")
             else:
                 print(f"[TELEGRAM ERROR] {retry_res.status_code}: {retry_res.text}")
         else:
@@ -347,44 +410,37 @@ def dispatch_broadcast(text: str):
         print(f"[TELEGRAM EXCEPTION] {e}")
 
 # ==============================================================================
-# 5. Broadcast Loop (Immediate Test Run + 15-Min Continuous Cycle)
+# 6. Scheduled Background Loop (Mon-Fri 9:30 AM - 3:00 PM PHT)
 # ==============================================================================
 async def market_broadcast_loop():
-    # Short 3-second startup buffer to allow web server to bind port
     await asyncio.sleep(3)
     tickers = list(WATCHLIST.keys())
-    print(f"\n[TEST MODE ACTIVE] Initializing immediate broadcast for all {len(tickers)} stocks...")
+    print(f"PSE 5-Pillar Engine initialized: Monitoring {len(tickers)} assets.")
 
     while True:
-        try:
+        is_open, status_reason = is_pse_trading_window()
+
+        if is_open:
             start_str = datetime.now(PHT).strftime("%I:%M:%S %p PHT")
-            print(f"[SWEEP START] Scraping 15 stocks at {start_str}...")
+            print(f"[MARKET ACTIVE - {status_reason}] Executing sweep at {start_str}...")
 
-            all_states = []
-            for ticker in tickers:
-                state = refresh_stock_metrics(ticker)
-                all_states.append(state)
+            try:
+                all_states = [refresh_stock_metrics(ticker) for ticker in tickers]
+                if all_states:
+                    digest = format_single_consolidated_digest(all_states)
+                    dispatch_broadcast(digest)
+            except Exception as e:
+                print(f"[LOOP ERROR] {e}")
 
-            if all_states:
-                # Split into two batches to strictly stay within Telegram's 4,096 char cap
-                batch_1 = all_states[:8]
-                batch_2 = all_states[8:]
-
-                msg_1 = format_digest_batch(batch_1, 1, 2)
-                dispatch_broadcast(msg_1)
-                await asyncio.sleep(2)  # Avoid rate limit
-
-                msg_2 = format_digest_batch(batch_2, 2, 2)
-                dispatch_broadcast(msg_2)
-
-        except Exception as e:
-            print(f"[LOOP ERROR] {e}")
-
-        print("[BREAK] Sleeping for 15 minutes (900s) until next broadcast...\n")
-        await asyncio.sleep(900)
+            print("[BREAK] Next sweep in 15 minutes (900s)...\n")
+            await asyncio.sleep(900)
+        else:
+            now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
+            print(f"[{now_str}] Market inactive: {status_reason}. Checking again in 2 minutes...")
+            await asyncio.sleep(120)
 
 # ==============================================================================
-# 6. FastAPI App & Render Port Binding
+# 7. FastAPI App & Render Health Check
 # ==============================================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -397,9 +453,11 @@ app = FastAPI(title="PSE Dynamic Broadcast Engine", lifespan=lifespan)
 @app.get("/")
 @app.get("/health")
 def health():
+    is_open, status_reason = is_pse_trading_window()
     return {
         "status": "online",
-        "mode": "Immediate Test & 15-min Loop (No Time Restrictions)",
+        "market_open": is_open,
+        "schedule_status": status_reason,
         "timestamp_pht": datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p")
     }
 
