@@ -1,7 +1,6 @@
 import os
 import sys
 import asyncio
-import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime, time as dtime
 import pytz
@@ -15,7 +14,7 @@ import uvicorn
 PHT = pytz.timezone("Asia/Manila")
 
 # ==============================================================================
-# Mandatory Compliance & Regulatory Notice (Pillar 5)
+# Pillar 5: Mandatory Compliance & Regulatory Notice
 # ==============================================================================
 MANDATORY_DISCLAIMER = (
     "⚠️ Informational Notice: These insights, technical indicators, and suggested "
@@ -26,7 +25,7 @@ MANDATORY_DISCLAIMER = (
 )
 
 # ==============================================================================
-# 1. Monitored Universe: 14 PSE Blue Chips + GCash Proxy (GLO)
+# 1. Monitored Universe: 14 PSE Blue Chips + GCash Synthetic Proxy (GLO)
 #    Equipped with Multi-Pillar Technical & Fundamental Baseline Knowledge
 # ==============================================================================
 WATCHLIST = {
@@ -384,6 +383,7 @@ def refresh_stock_metrics(ticker: str) -> dict:
     rsi_val = calculate_wilders_rsi(state["history"], period=14)
     trend = "Above MA20" if actual_price >= ma20 else "Below MA20"
 
+    # Analytical Corridors (Pillar 3: Support -1.0% to +1.5%, Resistance -1.0% to +1.5%)
     buy_band = f"₱{(dyn_s * 0.990):,.2f} – ₱{(dyn_s * 1.015):,.2f}"
     sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.015):,.2f}"
 
@@ -447,6 +447,9 @@ def format_single_consolidated_digest(stock_states: list) -> str:
     return "\n\n".join(lines)
 
 def generate_single_stock_full_report(ticker: str) -> str:
+    """
+    Generates a full 5-Pillar Comprehensive Analyst Report.
+    """
     ticker = ticker.upper()
     if ticker not in WATCHLIST:
         raise ValueError(f"Ticker {ticker} is not in monitored universe.")
