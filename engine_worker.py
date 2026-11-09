@@ -32,6 +32,7 @@ WATCHLIST = {
     "GCASH": {
         "name": "Mynt, Inc. (Digital Financial Services)",
         "sym": "GLO",
+        "company_id": "42",
         "last_price": 6.70,
         "history": [6.60, 6.68, 6.62, 6.75, 6.70, 6.64, 6.71, 6.70],
         "pe": "24.2x", "pb": "4.7x", "peg": "1.3x", "ev_ebitda": "14.8x",
@@ -43,6 +44,7 @@ WATCHLIST = {
     "GLO": {
         "name": "Globe Telecom, Inc.",
         "sym": "GLO",
+        "company_id": "42",
         "last_price": 1530.00,
         "history": [1520.0, 1545.0, 1530.0, 1550.0, 1525.0, 1535.0, 1530.0],
         "pe": "12.4x", "pb": "1.8x", "peg": "1.6x", "ev_ebitda": "6.8x",
@@ -54,6 +56,7 @@ WATCHLIST = {
     "AC": {
         "name": "Ayala Corporation",
         "sym": "AC",
+        "company_id": "84",
         "last_price": 540.00,
         "history": [535.0, 545.0, 532.0, 542.0, 538.0, 544.0, 540.0],
         "pe": "10.1x", "pb": "0.8x", "peg": "0.9x", "ev_ebitda": "8.2x",
@@ -65,6 +68,7 @@ WATCHLIST = {
     "BPI": {
         "name": "Bank of the Philippine Islands",
         "sym": "BPI",
+        "company_id": "118",
         "last_price": 94.00,
         "history": [93.0, 95.0, 93.5, 94.5, 92.8, 93.8, 94.0],
         "pe": "8.8x", "pb": "1.2x", "peg": "0.8x", "ev_ebitda": "N/A",
@@ -76,6 +80,7 @@ WATCHLIST = {
     "TEL": {
         "name": "PLDT Inc.",
         "sym": "TEL",
+        "company_id": "52",
         "last_price": 1126.00,
         "history": [1110.0, 1135.0, 1120.0, 1140.0, 1118.0, 1130.0, 1126.0],
         "pe": "11.2x", "pb": "1.4x", "peg": "1.4x", "ev_ebitda": "6.2x",
@@ -87,6 +92,7 @@ WATCHLIST = {
     "ALI": {
         "name": "Ayala Land, Inc.",
         "sym": "ALI",
+        "company_id": "83",
         "last_price": 15.20,
         "history": [15.10, 15.40, 14.95, 15.30, 15.05, 15.25, 15.20],
         "pe": "8.9x", "pb": "0.6x", "peg": "0.7x", "ev_ebitda": "7.5x",
@@ -98,6 +104,7 @@ WATCHLIST = {
     "BDO": {
         "name": "BDO Unibank, Inc.",
         "sym": "BDO",
+        "company_id": "119",
         "last_price": 117.10,
         "history": [116.0, 118.5, 115.5, 117.8, 116.4, 117.5, 117.1],
         "pe": "8.4x", "pb": "1.0x", "peg": "0.8x", "ev_ebitda": "N/A",
@@ -109,6 +116,7 @@ WATCHLIST = {
     "ICT": {
         "name": "Intl Container Terminal Services",
         "sym": "ICT",
+        "company_id": "151",
         "last_price": 820.00,
         "history": [815.0, 830.0, 810.0, 825.0, 818.0, 822.0, 820.0],
         "pe": "18.2x", "pb": "3.5x", "peg": "1.5x", "ev_ebitda": "11.4x",
@@ -120,6 +128,7 @@ WATCHLIST = {
     "SMPH": {
         "name": "SM Prime Holdings",
         "sym": "SMPH",
+        "company_id": "78",
         "last_price": 17.54,
         "history": [17.30, 17.80, 17.20, 17.65, 17.40, 17.60, 17.54],
         "pe": "14.5x", "pb": "1.1x", "peg": "1.2x", "ev_ebitda": "10.8x",
@@ -131,6 +140,7 @@ WATCHLIST = {
     "SM": {
         "name": "SM Investments Corp.",
         "sym": "SM",
+        "company_id": "80",
         "last_price": 534.00,
         "history": [525.0, 540.0, 528.0, 538.0, 530.0, 536.0, 534.0],
         "pe": "13.2x", "pb": "1.3x", "peg": "1.1x", "ev_ebitda": "9.6x",
@@ -142,6 +152,7 @@ WATCHLIST = {
     "MBT": {
         "name": "Metrobank",
         "sym": "MBT",
+        "company_id": "116",
         "last_price": 60.75,
         "history": [60.0, 61.5, 59.8, 61.0, 60.2, 60.9, 60.75],
         "pe": "6.8x", "pb": "0.7x", "peg": "0.6x", "ev_ebitda": "N/A",
@@ -153,6 +164,7 @@ WATCHLIST = {
     "MER": {
         "name": "Manila Electric Company",
         "sym": "MER",
+        "company_id": "60",
         "last_price": 429.80,
         "history": [422.0, 434.0, 426.0, 432.0, 425.0, 430.0, 429.8],
         "pe": "12.0x", "pb": "1.9x", "peg": "1.1x", "ev_ebitda": "7.8x",
@@ -164,6 +176,7 @@ WATCHLIST = {
     "MONDE": {
         "name": "Monde Nissin",
         "sym": "MONDE",
+        "company_id": "676",
         "last_price": 5.90,
         "history": [5.80, 6.00, 5.75, 5.95, 5.85, 5.92, 5.90],
         "pe": "16.5x", "pb": "2.2x", "peg": "1.3x", "ev_ebitda": "10.2x",
@@ -175,9 +188,10 @@ WATCHLIST = {
     "JFC": {
         "name": "Jollibee Foods Corporation",
         "sym": "JFC",
-        "last_price": 141.50,
-        "history": [141.0, 146.0, 142.0, 145.5, 143.0, 144.5, 141.50],
-        "pe": "22.4x", "pb": "3.0x", "peg": "1.5x", "ev_ebitda": "12.4x",
+        "company_id": "86",
+        "last_price": 149.00,
+        "history": [140.0, 142.5, 141.5, 145.0, 143.5, 146.0, 149.0],
+        "pe": "16.3x", "pb": "2.3x", "peg": "1.4x", "ev_ebitda": "11.8x",
         "sector": "Consumer Discretionary / QSR",
         "overview": "Fastest-growing Asian restaurant company with a global brand portfolio spanning fast-food, coffee, and tea.",
         "catalysts": "Accelerating international store network profitability, sustained domestic store sales growth, coffee business scaling.",
@@ -186,6 +200,7 @@ WATCHLIST = {
     "PGOLD": {
         "name": "Puregold Price Club",
         "sym": "PGOLD",
+        "company_id": "610",
         "last_price": 40.00,
         "history": [39.2, 40.5, 39.4, 40.2, 39.6, 40.1, 40.0],
         "pe": "10.4x", "pb": "0.8x", "peg": "0.9x", "ev_ebitda": "6.5x",
@@ -234,39 +249,48 @@ def is_pse_trading_window() -> tuple[bool, str]:
         return False, "Market closed for the day (Ended at 3:30 PM PHT)"
 
 # ==============================================================================
-# 3. Step 0: Real-Time Price Verification (Multi-Tier Anti-Bot Architecture)
+# 3. Step 0: Real-Time Price Verification (Multi-Tier Architecture)
 # ==============================================================================
 def fetch_live_pse_quote(ticker: str, meta: dict) -> tuple[float, str]:
+    """
+    Step 0 Mandatory Price Verification:
+    Tier 1: Direct PSE EDGE Gateway (edge.pse.com.ph)
+    Tier 2: Yahoo Finance API (JSON)
+    Tier 3: Google Finance HTML
+    """
     timestamp_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
 
     if ticker == "GCASH":
         glo_price, _ = fetch_live_pse_quote("GLO", WATCHLIST["GLO"])
-        synthetic_price = round(glo_price * (6.72 / 1537.00), 2)
+        synthetic_price = round(glo_price * (6.70 / 1530.00), 2)
         return synthetic_price, timestamp_str
 
     sym = meta["sym"]
+    company_id = meta.get("company_id")
 
-    # Tier 1: Google Finance HTML Scraper
-    try:
-        url = f"https://www.google.com/finance/quote/{sym}:PSE"
-        res = HTTP_SESSION.get(url, timeout=6)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, "html.parser")
-            price_div = soup.find("div", class_="YMlKec fxKbKc")
-            if price_div:
-                raw_text = price_div.text.replace("₱", "").replace(",", "").strip()
-                val = float(raw_text)
-                if val > 0:
-                    return round(val, 2), timestamp_str
-        elif res.status_code in (403, 429):
-            print(f"[SCRAPE WARNING] Google Finance returned HTTP {res.status_code} for {sym}. Switching to Tier 2...")
-    except Exception as e:
-        print(f"[SCRAPE NOTICE] Google Finance tier failed for {sym}: {e}")
+    # Tier 1: Official PSE EDGE Stock Data
+    if company_id:
+        try:
+            edge_url = f"https://edge.pse.com.ph/companyPage/stockData.do?cmpy_id={company_id}"
+            res = HTTP_SESSION.get(edge_url, timeout=5)
+            if res.status_code == 200:
+                soup = BeautifulSoup(res.text, "html.parser")
+                # Locate Last Traded Price element inside the stock data table
+                td_th = soup.find(lambda tag: tag.name in ["th", "td"] and "Last Traded Price" in tag.text)
+                if td_th:
+                    val_td = td_th.find_next_sibling("td")
+                    if val_td:
+                        clean_val = val_td.text.replace(",", "").strip()
+                        val = float(clean_val)
+                        if val > 0:
+                            return round(val, 2), timestamp_str
+        except Exception as e:
+            print(f"[SCRAPE NOTICE] PSE EDGE tier failed for {sym}: {e}")
 
-    # Tier 2: Yahoo Finance Chart API (Direct JSON - bypasses Cloudflare/HTML challenges)
+    # Tier 2: Yahoo Finance Chart API (Direct JSON)
     try:
         yf_url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}.PS?interval=1d&range=1d"
-        res = HTTP_SESSION.get(yf_url, timeout=6)
+        res = HTTP_SESSION.get(yf_url, timeout=5)
         if res.status_code == 200:
             data = res.json()
             meta_data = data.get("chart", {}).get("result", [{}])[0].get("meta", {})
@@ -276,22 +300,22 @@ def fetch_live_pse_quote(ticker: str, meta: dict) -> tuple[float, str]:
     except Exception as e:
         print(f"[SCRAPE NOTICE] Yahoo JSON tier failed for {sym}: {e}")
 
-    # Tier 3: MarketWatch Quote Fallback
+    # Tier 3: Google Finance HTML Scraper
     try:
-        mw_url = f"https://www.marketwatch.com/investing/stock/{sym.lower()}?countrycode=ph"
-        res = HTTP_SESSION.get(mw_url, timeout=6)
+        gf_url = f"https://www.google.com/finance/quote/{sym}:PSE"
+        res = HTTP_SESSION.get(gf_url, timeout=5)
         if res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
-            bg_quote = soup.find("bg-quote", class_="value")
-            if bg_quote:
-                raw_text = bg_quote.text.replace(",", "").strip()
+            price_div = soup.find("div", class_="YMlKec fxKbKc")
+            if price_div:
+                raw_text = price_div.text.replace("₱", "").replace(",", "").strip()
                 val = float(raw_text)
                 if val > 0:
                     return round(val, 2), timestamp_str
     except Exception as e:
-        print(f"[SCRAPE NOTICE] MarketWatch tier failed for {sym}: {e}")
+        print(f"[SCRAPE NOTICE] Google Finance tier failed for {sym}: {e}")
 
-    print(f"[SCRAPE NOTICE] All live feeds blocked or timed out for {sym}. Using baseline quote: {meta['last_price']}")
+    print(f"[SCRAPE NOTICE] All live sources unreachable for {sym}. Preserving baseline: {meta['last_price']}")
     return meta["last_price"], timestamp_str
 
 def fetch_historical_closes(ticker: str, meta: dict) -> list:
@@ -321,7 +345,7 @@ def fetch_historical_closes(ticker: str, meta: dict) -> list:
     return meta["history"]
 
 # ==============================================================================
-# 4. Indicator Calculation Engine (Wilder RSI, Moving Averages, S/R Bands)
+# 4. Indicator Engine (Wilder RSI, Moving Averages, Dynamic S/R Bands)
 # ==============================================================================
 def calculate_wilders_rsi(history: list, period: int = 14) -> float:
     if len(history) < 2:
@@ -359,7 +383,7 @@ def refresh_stock_metrics(ticker: str) -> dict:
 
     if ticker == "GCASH":
         glo_history = fetch_historical_closes("GLO", WATCHLIST["GLO"])
-        ratio = 6.72 / 1537.00
+        ratio = 6.70 / 1530.00
         history = [round(p * ratio, 2) for p in glo_history]
         actual_price, quote_time = fetch_live_pse_quote("GLO", WATCHLIST["GLO"])
         actual_price = round(actual_price * ratio, 2)
@@ -383,13 +407,13 @@ def refresh_stock_metrics(ticker: str) -> dict:
     rsi_val = calculate_wilders_rsi(state["history"], period=14)
     trend = "Above MA20" if actual_price >= ma20 else "Below MA20"
 
-    # Analytical Corridors (Pillar 3: Support -1.0% to +1.5%, Resistance -1.0% to +1.5%)
+    # Analytical Corridors (Support -1.0% to +1.5%, Resistance -1.0% to +1.5%)
     buy_band = f"₱{(dyn_s * 0.990):,.2f} – ₱{(dyn_s * 1.015):,.2f}"
     sell_band = f"₱{(dyn_r * 0.990):,.2f} – ₱{(dyn_r * 1.015):,.2f}"
 
-    if actual_price <= dyn_s * 1.015 or rsi_val <= 30.0:
+    if actual_price <= dyn_s * 1.015 or rsi_val <= 35.0:
         status_tag = "🟢 ACCUMULATION"
-    elif actual_price >= dyn_r * 0.990 or rsi_val >= 70.0:
+    elif actual_price >= dyn_r * 0.990 or rsi_val >= 68.0:
         status_tag = "🔴 PROFIT-TAKING"
     else:
         status_tag = "⚪ NEUTRAL"
@@ -419,7 +443,7 @@ def refresh_stock_metrics(ticker: str) -> dict:
     }
 
 # ==============================================================================
-# 5. Formatter & Telegram Dispatcher (Robust HTML Parsing)
+# 5. Formatter & Telegram Dispatchers
 # ==============================================================================
 def format_single_consolidated_digest(stock_states: list) -> str:
     now_str = datetime.now(PHT).strftime("%Y-%m-%d %I:%M %p PHT")
@@ -448,7 +472,7 @@ def format_single_consolidated_digest(stock_states: list) -> str:
 
 def generate_single_stock_full_report(ticker: str) -> str:
     """
-    Generates a full 5-Pillar Comprehensive Analyst Report.
+    Generates a full 5-Pillar Comprehensive Analyst Report anchored to Step 0 price.
     """
     ticker = ticker.upper()
     if ticker not in WATCHLIST:
@@ -458,8 +482,8 @@ def generate_single_stock_full_report(ticker: str) -> str:
 
     rsi_desc = (
         "oversold momentum (accumulation testing zone)"
-        if s["rsi"] <= 30
-        else ("overbought extension (caution warranted)" if s["rsi"] >= 70 else "neutral momentum equilibrium")
+        if s["rsi"] <= 35
+        else ("overbought extension (caution warranted)" if s["rsi"] >= 68 else "neutral momentum equilibrium")
     )
 
     report = f"""### 📊 {s['name']} ({s['ticker']}) — Comprehensive Analysis
@@ -493,44 +517,40 @@ def generate_single_stock_full_report(ticker: str) -> str:
 """
     return report
 
-def dispatch_broadcast(text: str):
-    print("\n" + "=" * 60)
-    print(text)
-    print("=" * 60 + "\n")
-
+def dispatch_broadcast(text: str, parse_mode: str = "HTML"):
     raw_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip().strip('"').strip("'")
     raw_chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip().strip('"').strip("'")
 
     if not raw_token or not raw_chat:
         print("[CONFIG ERROR] Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID.")
-        return
+        return False
 
     clean_token = raw_token.replace("bot", "") if raw_token.startswith("bot") else raw_token
     url = f"https://api.telegram.org/bot{clean_token}/sendMessage"
     payload = {
         "chat_id": raw_chat,
         "text": text,
-        "parse_mode": "HTML",
+        "parse_mode": parse_mode,
         "disable_web_page_preview": True
     }
 
     try:
         res = requests.post(url, json=payload, timeout=10)
         if res.status_code == 200:
-            print("[TELEGRAM] Consolidated digest delivered successfully.")
+            print("[TELEGRAM] Message delivered successfully.")
+            return True
         else:
             print(f"[TELEGRAM ERROR] HTTP {res.status_code}: {res.text}")
+            # Plain text fallback
             plain_payload = {
                 "chat_id": raw_chat,
                 "text": text.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
             }
-            retry_res = requests.post(url, json=plain_payload, timeout=10)
-            if retry_res.status_code == 200:
-                print("[TELEGRAM] Delivered as plain text fallback.")
-            else:
-                print(f"[TELEGRAM FALLBACK ERROR] HTTP {retry_res.status_code}: {retry_res.text}")
+            retry = requests.post(url, json=plain_payload, timeout=10)
+            return retry.status_code == 200
     except Exception as e:
         print(f"[TELEGRAM EXCEPTION] {e}")
+        return False
 
 # ==============================================================================
 # 6. Scheduled Background Broadcast Loop (Mon-Fri 9:00 AM - 3:30 PM PHT)
@@ -552,12 +572,11 @@ async def market_broadcast_loop():
                 for ticker in tickers:
                     st = refresh_stock_metrics(ticker)
                     all_states.append(st)
-                    # 0.3s jitter delay between ticker queries to prevent rate-limit blocking
                     await asyncio.sleep(0.3)
 
                 if all_states:
                     digest = format_single_consolidated_digest(all_states)
-                    dispatch_broadcast(digest)
+                    dispatch_broadcast(digest, parse_mode="HTML")
             except Exception as e:
                 print(f"[LOOP ERROR] {e}")
 
@@ -593,7 +612,7 @@ def health():
 @app.get("/analyze/{ticker}")
 def analyze_endpoint(ticker: str):
     """
-    Generates institutional-grade 5-Pillar equity analysis on demand.
+    Returns institutional-grade 5-Pillar equity analysis on demand.
     """
     try:
         report_text = generate_single_stock_full_report(ticker)
@@ -602,6 +621,18 @@ def analyze_endpoint(ticker: str):
             "report_markdown": report_text,
             "timestamp": datetime.now(PHT).strftime("%Y-%m-%d %I:%M:%S %p PHT")
         }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.post("/broadcast/{ticker}")
+def broadcast_single_report(ticker: str):
+    """
+    Instantly dispatches the full 5-Pillar report for a specific ticker to Telegram.
+    """
+    try:
+        report_text = generate_single_stock_full_report(ticker)
+        success = dispatch_broadcast(report_text, parse_mode="Markdown")
+        return {"ticker": ticker.upper(), "broadcast_sent": success}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
